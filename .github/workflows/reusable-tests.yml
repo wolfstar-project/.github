@@ -1,0 +1,55 @@
+name: Reusable Test
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: The version of Node.js to use (default `20`)
+        required: false
+        default: 20
+        type: number
+      operating-system:
+        description: The operating system to use (default `ubuntu-latest`)
+        required: false
+        default: ubuntu-latest
+        type: string
+      test-command:
+        description: 'Command to run tests'
+        required: true
+        default: 'yarn test --corevage'
+        type: string
+      enable-codecov:
+        description: Whether to enable codecov analysis
+        required: false
+        default: false
+        type: boolean
+      build:
+        description: Whether to run `yarn build` before testing
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      CODECOV_TOKEN:
+        description: The token for the Codevoc, required if inputs.enable-codecov is true
+        required: false
+jobs:
+  test:
+    runs-on: ${{ inputs.operating-system }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        uses: sapphiredev/.github/actions/install-yarn-dependencies@main
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Run tests
+        run: ${{ inputs.test-command }}
+      - name: Codecov Upload
+        if: ${{ inputs.enable-codecov }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/cobertura-coverage.xml
+          fail_ci_if_error: true

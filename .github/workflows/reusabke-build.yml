@@ -1,0 +1,34 @@
+name: lint
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: The version of Node.js to use (default `20`)
+        required: false
+        default: 20
+        type: number
+      operating-system:
+        description: The operating system to use (default `ubuntu-latest`)
+        required: false
+        default: ubuntu-latest
+        type: string
+jobs:
+  ci:
+    name: Building 
+    runs-on: ${{ inputs.operating-system }}
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v4
+      - name: Add problem matchers
+        run: echo "::add-matcher::.github/problemMatchers/tsc.json"
+      - name: Install Dependencies
+        uses: sapphiredev/.github/actions/install-yarn-dependencies@main
+        with:
+            node-version: ${{ inputs.node-version }}
+      - name: Build code
+        uses: wolfstar-project/.github/.github/workflows/reusable-yarn-job.yml@main
+        with:
+            script-name: build
+            operating-system: ${{ inputs.operating-system }}
+            node-version: ${{ inputs.node-version }}
