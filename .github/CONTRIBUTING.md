@@ -77,10 +77,6 @@ $ yarn lint
 $ yarn start
 ```
 
-## Running .NET + HTTP-Only based WolfStar Project bots locally
-
-**_TODO_**
-
 ## WolfStar Project Concept Guidelines
 
 There are a number of guidelines considered when reviewing Pull Requests to be merged. _This is by no means an

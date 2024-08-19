@@ -14,7 +14,7 @@ export default {
 			}
 		},
 		{
-			files: ['.github/CODEOWNERS'],
+			files: ['.github/CODEOWNERS', '.github/workflows/*.yml'],
 			options: {
 				parser: 'yaml'
 			}
