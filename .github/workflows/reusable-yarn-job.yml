@@ -2,7 +2,7 @@ name: Run Yarn job
 
 on:
   workflow_call:
-    inputs:
+     inputs:
       node-version:
         description: The version of Node.js to use (default `20`)
         required: false
@@ -12,6 +12,11 @@ on:
         description: The operating system to use (default `ubuntu-latest`)
         required: false
         default: ubuntu-latest
+        type: string
+      with-submodules:
+        description: Whether to include submodules when checking out the repository (default `false`)
+        required: false
+        default: 'false'
         type: string
       script-name:
         description: The name of the yarn script to run
@@ -25,6 +30,8 @@ jobs:
     steps:
       - name: Checkout Project
         uses: actions/checkout@v4
+        with:
+          submodules: ${{ inputs.with-submodules }}
       - name: Install dependencies
         uses: sapphiredev/.github/actions/install-yarn-dependencies@main
         with:

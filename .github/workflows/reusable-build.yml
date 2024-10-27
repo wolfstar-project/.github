@@ -13,22 +13,17 @@ on:
         required: false
         default: ubuntu-latest
         type: string
+      with-submodules:
+        description: Whether to include submodules when checking out the repository (default `false`)
+        required: false
+        default: 'false'
+        type: string
 jobs:
-  ci:
-    name: Building 
-    runs-on: ${{ inputs.operating-system }}
-    steps:
-      - name: Checkout Project
-        uses: actions/checkout@v4
-      - name: Add problem matchers
-        run: echo "::add-matcher::.github/problemMatchers/tsc.json"
-      - name: Install Dependencies
-        uses: sapphiredev/.github/actions/install-yarn-dependencies@main
-        with:
-            node-version: ${{ inputs.node-version }}
-      - name: Build code
-        uses: wolfstar-project/.github/.github/workflows/reusable-yarn-job.yml@main
-        with:
-            script-name: build
-            operating-system: ${{ inputs.operating-system }}
-            node-version: ${{ inputs.node-version }}
+  build:
+    name: Building
+    uses: wolfstar-project/.github/.github/workflows/reusable-yarn-job.yml@main
+    with:
+      script-name: build
+      operating-system: ${{ inputs.operating-system }}
+      node-version: ${{ inputs.node-version }}
+      with-submodules: ${{ inputs.with-submodules }}
