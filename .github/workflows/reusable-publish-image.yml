@@ -60,7 +60,7 @@ jobs:
         with:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ inputs.registryImage }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ inputs.registryImage }},push=true
           tags: |
             ${{ inputs.registryImage }}:${{ inputs.tag }}
             ${{ inputs.registryImage }}:${{ inputs.commitHash || github.sha }}
