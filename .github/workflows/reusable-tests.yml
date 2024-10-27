@@ -15,7 +15,7 @@ on:
         type: string
       test-command:
         description: 'Command to run tests'
-        required: true
+        required: false
         default: 'yarn test --corevage'
         type: string
       enable-codecov:
