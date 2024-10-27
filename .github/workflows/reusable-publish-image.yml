@@ -54,13 +54,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
         with:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          context: .
+          outputs: type=image,name=${{ inputs.registryImage }},push-by-digest=true,name-canonical=true,push=true
           tags: |
             ${{ inputs.registryImage }}:${{ inputs.tag }}
             ${{ inputs.registryImage }}:${{ inputs.commitHash || github.sha }}
