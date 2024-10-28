@@ -20,11 +20,6 @@ on:
         type: string
 
 jobs:
-  problem-matchers:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Add Tsc problem matcher
-        run: echo "::add-matcher::.github/problemMatchers/tsc.json"
   build:
     name: Building
     uses: wolfstar-project/.github/.github/workflows/reusable-yarn-job.yml@main
