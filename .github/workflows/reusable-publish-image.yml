@@ -7,6 +7,11 @@ on:
         required: true
         type: string
         description: 'The image name to use for the Docker image'
+      platforms:
+        required: true
+        type: string
+        description: 'The platforms to build the Docker image for available platforms: linux/amd64,linux/arm64 and all platforms: linux/amd64,linux/arm64'
+        default: 'linux/amd64,linux/arm64'
       tag:
         required: false
         type: string
@@ -24,11 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
-          - linux/arm64/v7
-          - linux/arm64/v6
+        platform: ${{ inputs.platforms }}
     steps:
       - name: Prepare
         run: |
@@ -53,6 +54,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and export to Docker
+        uses: docker/build-push-action@v6
+        with:
+          load: true
+          tags: ${{ inputs.registryImage }}:test
+
+      - name: Test
+        run: |
+          docker run --rm ${{ inputs.registryImage }}:test
 
       - name: Build and push by digest
         id: build
