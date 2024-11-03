@@ -4,11 +4,15 @@ on:
   workflow_call:
     inputs:
       registryImage:
-        required: true
+        required: false
         type: string
         description: 'The image name to use for the Docker image'
+      enablePlatforms:
+        required: false
+        type: boolean
+        default: false
       platforms:
-        required: true
+        required: false
         type: string
         description: 'The platforms to build the Docker image for available platforms: linux/amd64,linux/arm64 and all platforms: linux/amd64,linux/arm64'
         default: 'linux/amd64,linux/arm64'
@@ -22,6 +26,13 @@ on:
         type: string
         description: 'The commit hash to use for the Docker image'
 
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ inputs.registryImage || github.repository }}
+  LATEST_TAG: ${{ inputs.registryImage || github.repository }}:${{ inputs.tag }}
+  HASH_TAG: ${{ inputs.registryImage || github.repository }}:${{ inputs.commitHash || github.sha }}
+
 jobs:
   build:
     name: Publish WolfStar image to container registries
@@ -29,18 +40,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ inputs.platforms }}
+        platform: ${{ fromJson(inputs.platforms)  }}
     steps:
       - name: Prepare
+        if: ${{ inputs.enablePlatforms == true }}
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-      - name: Docker meta
+      - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.registryImage }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -51,7 +65,7 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.3.0
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -59,11 +73,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           load: true
-          tags: ${{ inputs.registryImage }}:test
+          tags: ${{ env.IMAGE_NAME }}:test
 
       - name: Test
         run: |
-          docker run --rm ${{ inputs.registryImage }}:test
+          docker run --rm ${{ env.IMAGE_NAME }}:test
 
       - name: Build and push by digest
         id: build
@@ -71,10 +85,10 @@ jobs:
         with:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ inputs.registryImage }},push=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push=true
           tags: |
-            ${{ inputs.registryImage }}:${{ inputs.tag }}
-            ${{ inputs.registryImage }}:${{ inputs.commitHash || github.sha }}
+            ${{ env.LATEST_TAG }}
+            ${{ env.HASH_TAG }}
 
       - name: Export digest
         run: |
@@ -83,9 +97,9 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4      
+        uses: actions/upload-artifact@v4
         env:
-            PLATFORM_PAIR: ${{ env.PLATFORM_PAIR }}
+          PLATFORM_PAIR: ${{ env.PLATFORM_PAIR }}
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
@@ -109,12 +123,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.registryImage }}
+          images: ${{ env.IMAGE_NAME }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.3.0
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,8 +136,8 @@ jobs:
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ inputs.registryImage }}@sha256:%s ' *)
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ inputs.registryImage }}:${{ inputs.tag }}
+          docker buildx imagetools inspect ${{ env.LATEST_TAG }}
