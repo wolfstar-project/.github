@@ -38,7 +38,7 @@ fail.
 1. Fork, clone, and select the **main** branch.
 2. Create a new branch in your fork.
 3. Make your changes.
-4. Ensure your linting and tests pass by running `yarn test && yarn lint`
+4. Ensure your linting and tests pass by running `bun test && bun lint`
 5. Commit your changes, and push them.
 6. Submit a Pull Request!
 
@@ -48,34 +48,34 @@ fail.
 
 To run any of the TypeScript + Gateway based WolfStar bots locally a few steps should be taken.
 
-1. Install [Node.JS], [Yarn] or [Pnpm] and [Docker].
+1. Install [Node.JS], [Bun] or [Pnpm] and [Docker].
 2. In the Discord Developer portal go to your application and then to the "Bot" menu.
 3. At "Privileged Gateway Intents" enable `SERVER MEMBERS INTENT` and `MESSAGE CONTENT INTENT`
 4. Copy and paste the [`.env.development`][`.env.development`] file in the `src` directory and rename it to `.env.development.local`.
 5. Scroll down to the tokens section.
 6. At this section enter your own bot's API token at `DISCORD_TOKEN`.
 7. Fill in any other API keys you have / want to fill in.
-8. Install project dependencies with `yarn install`.
-9. Start the bot in development mode with `yarn dev`.
+8. Install project dependencies with `bun install`.
+9. Start the bot in development mode with `bun dev`.
 
 A few other important commands:
 
 ```bash
-# Install project dependencies with immutable lockfile:
-$ yarn install --immutable
+# Install project dependencies with frozen lockfile:
+$ bun install --frozen-lockfile
 
 # Lints and format all the code:
-$ yarn lint
+$ bun lint
 
 # Run the bot in development mode:
-$ yarn start
+$ bun start
 ```
 
 ## 💻 Running TypeScript + HTTP-Only based WolfStar Project bots locally
 
 To run any of the TypeScript + HTTP-Only based WolfStar bots locally a few steps should be taken.
 
-1. Install [Node.JS], [Yarn] or [Pnpm] and [Docker].
+1. Install [Node.JS], [Bun] or [Pnpm] and [Docker].
 2. You will need an **HTTPS** public endpoint which Discord can send payload data to. We recommend using [Cloudflare
    Tunnels][cf-tunnels] for this. You can find instructions on how to set up a [Cloudflare Tunnel here][cf-tunnel].
    - The basic idea is that locally you start a cloudflare tunnel that forwards your `localhost:port` to the Cloudflare
@@ -91,8 +91,8 @@ To run any of the TypeScript + HTTP-Only based WolfStar bots locally a few steps
    3. The port at which you want to start the application (at `PORT`)
       - This is the port that you will forward with [Cloudflare Tunnels][cf-tunnels]
 8. Fill in any other API keys you have / want to fill in.
-9. Install project dependencies with `yarn install`.
-10. Start the bot in development mode with `yarn dev`.
+9. Install project dependencies with `bun install`.
+10. Start the bot in development mode with `bun dev`.
 11. Start your [Cloudflare Tunnel][cf-tunnels] to start forwarding data
 12. (**_First Time Only_**) on the Discord Developer portal press the "Save Changes" button to save the
     `INTERACTIONS ENDPOINT URL`.
@@ -103,14 +103,14 @@ To run any of the TypeScript + HTTP-Only based WolfStar bots locally a few steps
 A few other important commands:
 
 ```bash
-# Install project dependencies with immutable lockfile:
-$ yarn install --immutable
+# Install project dependencies with frozen lockfile:
+$ bun install --frozen-lockfile
 
 # Lints and format all the code:
-$ yarn lint
+$ bun lint
 
 # Run the bot in development mode:
-$ yarn start
+$ bun start
 ```
 
 ## ✨ WolfStar Project Concept Guidelines
@@ -171,7 +171,7 @@ These environments will automatically:
 [discord server]: https://join.wolfstar.rocks
 [eslint]: https://eslint.org/
 [node.js]: https://nodejs.org/en/download/
-[yarn]: https://classic.yarnpkg.com/en/docs/install
+[bun]: https://bun.sh/docs/installation
 [pnpm]: https://pnpm.io/installation
 [docker]: https://www.docker.com
 [oop paradigms]: https://en.wikipedia.org/wiki/Object-oriented_programming
