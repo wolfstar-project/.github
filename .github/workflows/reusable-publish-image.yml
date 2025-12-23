@@ -21,6 +21,16 @@ on:
         type: string
         default: 'latest'
         description: 'The tag to use for the Docker image'
+      context:
+        required: false
+        type: string
+        default: '.'
+        description: 'The build context to use for the Docker image'
+      dockerFile:
+        required: false
+        type: string
+        default: 'Dockerfile'
+        description: 'The Dockerfile to use for the Docker image'
       commitHash:
         required: false
         type: string
@@ -74,6 +84,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerFile }}
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
