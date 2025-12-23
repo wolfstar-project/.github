@@ -10,7 +10,7 @@ on:
       enablePlatforms:
         required: false
         type: boolean
-        default: false
+        default: true
       platforms:
         required: false
         type: string
@@ -34,6 +34,7 @@ on:
       commitHash:
         required: false
         type: string
+        default: ${{ github.sha }}
         description: 'The commit hash to use for the Docker image'
 
 
@@ -88,7 +89,9 @@ jobs:
           file: ${{ inputs.dockerFile }}
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.LATEST_TAG }}
+            ${{ env.HASH_TAG }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
