@@ -1,0 +1,63 @@
+name: Setup pnpm & Node
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Version spec of Node.js to use. Examples: 22, 22.x, lts/*, lts/iron. If omitted, falls back to node-version-file.'
+        required: false
+        type: string
+      node-version-file:
+        description: 'File containing the Node.js version to use (e.g. `.node-version`, `.nvmrc`). Used only when node-version is not set.'
+        required: false
+        type: string
+      pnpm-version:
+        description: 'Version of pnpm to use. Examples: 9, 10, latest. If omitted, reads from the packageManager field in package.json.'
+        required: false
+        type: string
+      operating-system:
+        description: The operating system to use (default `ubuntu-latest`)
+        required: false
+        default: ubuntu-latest
+        type: string
+      with-submodules:
+        description: Whether to include submodules when checking out the repository (default `false`)
+        required: false
+        default: 'false'
+        type: string
+      install-dependencies:
+        description: Whether to run `pnpm install` after setup (default `true`)
+        required: false
+        default: true
+        type: boolean
+      frozen-lockfile:
+        description: Whether to use `--frozen-lockfile` when installing dependencies (default `true`)
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ${{ inputs.operating-system }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: ${{ inputs.with-submodules }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: pnpm
+
+      - name: Install dependencies
+        if: ${{ inputs.install-dependencies == true }}
+        run: pnpm install${{ inputs.frozen-lockfile == true && ' --frozen-lockfile' || '' }}
