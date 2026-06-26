@@ -1,7 +1,7 @@
 {
 	"name": "github",
 	"version": "1.0.0",
-	"description": "Shareable github metadata files for our organisation",
+	"description": "Shareable github metadata files for our organization",
 	"author": "@wolfstar",
 	"license": "MIT",
 	"private": true,
