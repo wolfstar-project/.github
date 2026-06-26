@@ -6,9 +6,7 @@
 
 **Invite our Discord bots**
 
-
-| **[Invite WolfStar](https://invite.wolfstar.rocks/wolfstar)** |   
-| --------------------------------------------------------------- |
-
+| **[Invite WolfStar](https://invite.wolfstar.rocks/wolfstar)** |
+| ------------------------------------------------------------- |
 
 </div>

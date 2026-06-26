@@ -1,0 +1,31 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"endOfLine": "lf",
+	"printWidth": 150,
+	"quoteProps": "as-needed",
+	"semi": true,
+	"singleQuote": true,
+	"tabWidth": 4,
+	"trailingComma": "none",
+	"useTabs": true,
+	"sortPackageJson": false,
+	"ignorePatterns": [".gitignore", "bun.lock"],
+	"overrides": [
+		{
+			"files": ["*.yml"],
+			"options": {
+				"tabWidth": 2,
+				"useTabs": false
+			}
+		},
+		{
+			"files": ["README.md", "LICENSE.md", ".github/**/*.md", "profile/README.md"],
+			"options": {
+				"tabWidth": 2,
+				"useTabs": false,
+				"printWidth": 120,
+				"proseWrap": "always"
+			}
+		}
+	]
+}

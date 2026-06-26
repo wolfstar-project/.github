@@ -4,12 +4,11 @@
 
 # WolfStar Project · GitHub
 
-Shared GitHub metadata, reusable workflows, and community templates for the
-[WolfStar Project][profile-link] organization.<br/>
+Shared GitHub metadata, reusable workflows, and community templates for the [WolfStar Project][profile-link]
+organization.<br/>
 
-[Official Site][official-site] · [Dashboard][dashboard-link] · [WolfStar Invite
-Link][invite-link] · [Support Server][discord-link] ·
-[Feedback][github-issues-link]
+[Official Site][official-site] · [Dashboard][dashboard-link] · [WolfStar Invite Link][invite-link] · [Support
+Server][discord-link] · [Feedback][github-issues-link]
 
 <!-- SHIELD GROUP -->
 
@@ -23,12 +22,10 @@ Link][invite-link] · [Support Server][discord-link] ·
 
 ### Share WolfStar Project
 
-[![][share-linkedin-shield]][share-linkedin-link]
-[![][share-reddit-shield]][share-reddit-link]
-[![][share-telegram-shield]][share-telegram-link]
-[![][share-whatsapp-shield]][share-whatsapp-link]
-[![][share-x-shield]][share-x-link] <sup>Centralized GitHub metadata and CI
-workflows for the WolfStar ecosystem. Built for maintainers and contributors.</sup>
+[![][share-linkedin-shield]][share-linkedin-link] [![][share-reddit-shield]][share-reddit-link]
+[![][share-telegram-shield]][share-telegram-link] [![][share-whatsapp-shield]][share-whatsapp-link]
+[![][share-x-shield]][share-x-link] <sup>Centralized GitHub metadata and CI workflows for the WolfStar ecosystem. Built
+for maintainers and contributors.</sup>
 
 </div>
 
@@ -53,9 +50,8 @@ workflows for the WolfStar ecosystem. Built for maintainers and contributors.</s
 
 ## 👋🏻 Welcome to WolfStar Project · GitHub
 
-This repository is the **central hub for GitHub organization metadata** across
-the WolfStar Project ecosystem. It provides issue templates, community
-guidelines, label definitions, problem matchers, and reusable GitHub Actions
+This repository is the **central hub for GitHub organization metadata** across the WolfStar Project ecosystem. It
+provides issue templates, community guidelines, label definitions, problem matchers, and reusable GitHub Actions
 workflows that other repositories in the organization can consume.
 
 </div>
@@ -64,18 +60,15 @@ workflows that other repositories in the organization can consume.
 
 ## ✨ Features
 
-- **Issue Templates**: Structured YAML templates for bug reports and feature
-  requests, with a configurable issue chooser.
-- **Community Guidelines**: Code of conduct, contributing guide, security policy,
-  and privacy policy shared across all organization repositories.
-- **Label Sync**: Centralized label definitions in `.github/labels.yml` for
-  consistent issue and pull request triage.
-- **Reusable Workflows**: Pre-built GitHub Actions workflows for Node.js/pnpm
-  setup, label synchronization, and multi-platform Docker image publishing.
-- **Problem Matchers**: GitHub Actions problem matchers for ESLint and
-  TypeScript compiler output.
-- **Renovate Configuration**: Shared Renovate bot settings for automated
-  dependency updates.
+- **Issue Templates**: Structured YAML templates for bug reports and feature requests, with a configurable issue
+  chooser.
+- **Community Guidelines**: Code of conduct, contributing guide, security policy, and privacy policy shared across all
+  organization repositories.
+- **Label Sync**: Centralized label definitions in `.github/labels.yml` for consistent issue and pull request triage.
+- **Reusable Workflows**: Pre-built GitHub Actions workflows for Node.js/pnpm setup, label synchronization, and
+  multi-platform Docker image publishing.
+- **Problem Matchers**: GitHub Actions problem matchers for ESLint and TypeScript compiler output.
+- **Renovate Configuration**: Shared Renovate bot settings for automated dependency updates.
 
 </div>
 
@@ -83,20 +76,19 @@ workflows that other repositories in the organization can consume.
 
 ## 📦 Organization Metadata
 
-The following files are maintained in this repository and referenced by other
-WolfStar Project repositories:
+The following files are maintained in this repository and referenced by other WolfStar Project repositories:
 
-| File | Description |
-| --- | --- |
-| `.github/ISSUE_TEMPLATE/` | Bug report and feature request templates |
-| `.github/CODE_OF_CONDUCT.md` | Community code of conduct |
-| `.github/CONTRIBUTING.md` | Contribution guidelines |
-| `.github/SECURITY.md` | Security vulnerability reporting policy |
-| `.github/PRIVACY_POLICY.md` | Privacy policy |
-| `.github/labels.yml` | Organization-wide label definitions |
-| `.github/problemMatchers/` | ESLint and TypeScript problem matchers |
-| `.github/renovate.json` | Shared Renovate bot configuration |
-| `.github/CODEOWNERS` | Default code ownership rules |
+| File                         | Description                              |
+| ---------------------------- | ---------------------------------------- |
+| `.github/ISSUE_TEMPLATE/`    | Bug report and feature request templates |
+| `.github/CODE_OF_CONDUCT.md` | Community code of conduct                |
+| `.github/CONTRIBUTING.md`    | Contribution guidelines                  |
+| `.github/SECURITY.md`        | Security vulnerability reporting policy  |
+| `.github/PRIVACY_POLICY.md`  | Privacy policy                           |
+| `.github/labels.yml`         | Organization-wide label definitions      |
+| `.github/problemMatchers/`   | ESLint and TypeScript problem matchers   |
+| `.github/renovate.json`      | Shared Renovate bot configuration        |
+| `.github/CODEOWNERS`         | Default code ownership rules             |
 
 </div>
 
@@ -104,14 +96,13 @@ WolfStar Project repositories:
 
 ## 🔄 Reusable Workflows
 
-This repository provides reusable GitHub Actions workflows that can be called
-from any repository in the organization via `workflow_call`.
+This repository provides reusable GitHub Actions workflows that can be called from any repository in the organization
+via `workflow_call`.
 
 ### Setup pnpm & Node
 
-The `reusable-setup.yml` workflow handles checkout, pnpm and Node.js setup, and
-optional dependency installation. It supports configurable Node.js versions,
-pnpm versions, operating systems, and frozen lockfile installs.
+The `reusable-setup.yml` workflow handles checkout, pnpm and Node.js setup, and optional dependency installation. It
+supports configurable Node.js versions, pnpm versions, operating systems, and frozen lockfile installs.
 
 ```yaml
 jobs:
@@ -124,9 +115,8 @@ jobs:
 
 ### Label Sync
 
-The `reusable-labelsync.yml` workflow synchronizes GitHub labels from
-`.github/labels.yml` to a target repository. It supports merging with
-repository-specific label overrides.
+The `reusable-labelsync.yml` workflow synchronizes GitHub labels from `.github/labels.yml` to a target repository. It
+supports merging with repository-specific label overrides.
 
 ```yaml
 jobs:
@@ -138,9 +128,8 @@ jobs:
 
 ### Publish Docker Image
 
-The `reusable-publish-image.yml` workflow builds and publishes multi-platform
-Docker images to GitHub Container Registry (GHCR). It supports configurable
-platforms, tags, build context, and Dockerfile paths.
+The `reusable-publish-image.yml` workflow builds and publishes multi-platform Docker images to GitHub Container Registry
+(GHCR). It supports configurable platforms, tags, build context, and Dockerfile paths.
 
 ```yaml
 jobs:
@@ -166,8 +155,7 @@ jobs:
 
 - `bun run format` — Format files with Oxfmt.
 
-Refer to [CONTRIBUTING.md][contributing-link] for detailed setup instructions
-across WolfStar Project repositories.
+Refer to [CONTRIBUTING.md][contributing-link] for detailed setup instructions across WolfStar Project repositories.
 
 </div>
 
@@ -175,8 +163,8 @@ across WolfStar Project repositories.
 
 ## 💻 Online Development
 
-Click any of the buttons below to start a new development environment to demo or
-contribute to the codebase without having to install anything on your machine:
+Click any of the buttons below to start a new development environment to demo or contribute to the codebase without
+having to install anything on your machine:
 
 <div align="center">
 
@@ -196,9 +184,8 @@ contribute to the codebase without having to install anything on your machine:
 
 ## 🤝 Contributing
 
-Thank you to all the people who already contributed to WolfStar Project! Please
-make sure to read the [Contributing Guide][contributing-link] before making a
-pull request.
+Thank you to all the people who already contributed to WolfStar Project! Please make sure to read the [Contributing
+Guide][contributing-link] before making a pull request.
 
 <a href="https://github.com/wolfstar-project/.github/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=wolfstar-project/.github" alt="Project contributors" />
@@ -210,8 +197,8 @@ pull request.
 
 ## ❤️ Sponsor
 
-If you like WolfStar and want to support the project, consider making a
-donation. Every contribution helps to maintain and improve the bot.
+If you like WolfStar and want to support the project, consider making a donation. Every contribution helps to maintain
+and improve the bot.
 
 [![Support on Ko-fi](https://img.shields.io/badge/Support%20on%20Ko--fi-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)][ko-fi-link]
 [![Support on Patreon](https://img.shields.io/badge/Support%20on%20Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)][patreon-link]
@@ -235,46 +222,38 @@ Thank you for your support!
 
 <summary><h4>📝 License</h4>
 
-Copyright © 2024 [WolfStar Project][profile-link]. <br /> This project is
-[MIT](./LICENSE) licensed.
+Copyright © 2024 [WolfStar Project][profile-link]. <br /> This project is [MIT](./LICENSE) licensed.
 
 <!-- LINK GROUP -->
 
 [ko-fi-link]: https://ko-fi.com/redstar071
 [patreon-link]: https://www.patreon.com/RedStar071
 [github-sponsor-link]: https://github.com/sponsors/wolfstar-project
-[back-to-top]:
-  https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square
-[contributing-link]:
-  https://github.com/wolfstar-project/.github/blob/main/.github/CONTRIBUTING.md
+[back-to-top]: https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square
+[contributing-link]: https://github.com/wolfstar-project/.github/blob/main/.github/CONTRIBUTING.md
 [discord-link]: https://join.wolfstar.rocks
 [discord-shield]:
   https://img.shields.io/discord/830481105261821952?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=flat-square
-[github-contributors-link]:
-  https://github.com/wolfstar-project/.github/graphs/contributors
+[github-contributors-link]: https://github.com/wolfstar-project/.github/graphs/contributors
 [github-contributors-shield]:
   https://img.shields.io/github/contributors/wolfstar-project/.github?color=c4f042&labelColor=black&style=flat-square
-[github-forks-link]:
-  https://github.com/wolfstar-project/.github/network/members
+[github-forks-link]: https://github.com/wolfstar-project/.github/network/members
 [github-forks-shield]:
   https://img.shields.io/github/forks/wolfstar-project/.github?color=8ae8ff&labelColor=black&style=flat-square
 [github-issues-link]: https://github.com/wolfstar-project/.github/issues
 [github-issues-shield]:
   https://img.shields.io/github/issues/wolfstar-project/.github?color=ff80eb&labelColor=black&style=flat-square
-[github-license-link]:
-  https://github.com/wolfstar-project/.github/blob/main/LICENSE
+[github-license-link]: https://github.com/wolfstar-project/.github/blob/main/LICENSE
 [github-license-shield]:
   https://img.shields.io/github/license/wolfstar-project/.github?labelColor=black&style=flat-square
-[github-stars-link]:
-  https://github.com/wolfstar-project/.github/network/stargazers
+[github-stars-link]: https://github.com/wolfstar-project/.github/network/stargazers
 [github-stars-shield]:
   https://img.shields.io/github/stars/wolfstar-project/.github?color=ffcb47&labelColor=black&style=flat-square
 [official-site]: https://wolfstar.rocks
 [dashboard-link]: https://github.com/wolfstar-project/wolfstar.rocks
 [invite-link]: https://invite.wolfstar.rocks
 [pr-welcome-link]: https://github.com/wolfstar-project/.github/pulls
-[pr-welcome-shield]:
-  https://img.shields.io/badge/🤯_pr_welcome-%E2%86%92-ffcb47?labelColor=black&style=for-the-badge
+[pr-welcome-shield]: https://img.shields.io/badge/🤯_pr_welcome-%E2%86%92-ffcb47?labelColor=black&style=for-the-badge
 [profile-link]: https://github.com/wolfstar-project
 [share-linkedin-shield]:
   https://img.shields.io/badge/-share%20on%20linkedin-black?labelColor=black&logo=linkedin&logoColor=white&style=flat-square
