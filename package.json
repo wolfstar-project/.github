@@ -1,19 +1,16 @@
 {
 	"name": "github",
 	"version": "1.0.0",
-	"description": "Shareable github metadata files for our organisation",
+	"description": "Shareable github metadata files for our organization",
 	"author": "@wolfstar",
 	"license": "MIT",
 	"private": true,
 	"scripts": {
-		"prettier": "prettier --ignore-path=.prettierignore",
-		"format": "prettier --write \"*\""
-	},
-	"dependencies": {
-		"@sapphire/prettier-config": "^2.0.0"
+		"format": "oxfmt",
+		"format:check": "oxfmt --check"
 	},
 	"devDependencies": {
-		"prettier": "^3.5.3"
+		"oxfmt": "^0.56.0"
 	},
 	"resolutions": {
 		"ansi-regex": "^6.1.0",

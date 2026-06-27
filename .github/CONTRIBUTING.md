@@ -6,7 +6,8 @@
 
 A guide to contributing to the WolfStar project<br/>
 
-[Discord Server] · [ESLint Setup][eslint] · [Development Guide](#running-typescript--gateway-based-wolfstar-project-bots-locally)
+[Discord Server] · [ESLint Setup][eslint] ·
+[Development Guide](#running-typescript--gateway-based-wolfstar-project-bots-locally)
 
 </div>
 
@@ -51,7 +52,8 @@ To run any of the TypeScript + Gateway based WolfStar bots locally a few steps s
 1. Install [Node.JS], [Bun] or [Pnpm] and [Docker].
 2. In the Discord Developer portal go to your application and then to the "Bot" menu.
 3. At "Privileged Gateway Intents" enable `SERVER MEMBERS INTENT` and `MESSAGE CONTENT INTENT`
-4. Copy and paste the [`.env.development`][`.env.development`] file in the `src` directory and rename it to `.env.development.local`.
+4. Copy and paste the [`.env.development`][`.env.development`] file in the `src` directory and rename it to
+   `.env.development.local`.
 5. Scroll down to the tokens section.
 6. At this section enter your own bot's API token at `DISCORD_TOKEN`.
 7. Fill in any other API keys you have / want to fill in.
@@ -83,7 +85,8 @@ To run any of the TypeScript + HTTP-Only based WolfStar bots locally a few steps
 3. In the Discord Developer portal go to your application and stick to the "General Information" menu.
 4. At `INTERACTIONS ENDPOINT URL` enter the HTTPS endpoint you have set up.
    - Following the previous example this would be `https://my-bot-project.mywebsite.xyz`.
-5. Copy and paste the [`.env.development`][`.env.development`] file in the `src` directory and rename it to `.env.development.local`.
+5. Copy and paste the [`.env.development`][`.env.development`] file in the `src` directory and rename it to
+   `.env.development.local`.
 6. Scroll down to the authentication section.
 7. At this section enter your own bot's:
    1. Application ID (at `DISCORD_APPLICATION_ID`)
@@ -118,8 +121,8 @@ $ bun start
 There are a number of guidelines considered when reviewing Pull Requests to be merged. _This is by no means an
 exhaustive list, but here are some things to consider before/while submitting your ideas._
 
-- WolfStar Project should never change Sapphire's or Discord.js' default behavior. WolfStar should only add to Sapphire and
-  Discord.js, and be as consistent as possible with them.
+- WolfStar Project should never change Sapphire's or Discord.js' default behavior. WolfStar should only add to Sapphire
+  and Discord.js, and be as consistent as possible with them.
 - Everything in WolfStar Project should be generally useful for the majority of users. Don't let that stop you if you've
   got a good concept though, as your idea still might be a great addition.
 - Everything should be shard compliant. If code you put in a pull request would break when sharding, break other things
@@ -151,7 +154,8 @@ You can develop WolfStar using any of these online environments:
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)][gitpod-link]
 
 These environments will automatically:
-1. Clone the repository 
+
+1. Clone the repository
 2. Install dependencies
 3. Set up the development environment
 4. Start the development server
