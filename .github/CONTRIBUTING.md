@@ -39,7 +39,7 @@ fail.
 1. Fork, clone, and select the **main** branch.
 2. Create a new branch in your fork.
 3. Make your changes.
-4. Ensure your linting and tests pass by running `bun test && bun lint`
+4. Ensure your linting and tests pass by running `pnpm test && pnpm lint`
 5. Commit your changes, and push them.
 6. Submit a Pull Request!
 
