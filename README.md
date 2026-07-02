@@ -220,7 +220,7 @@ Thank you for your support!
 
 ---
 
-<summary><h4>📝 License</h4>
+<h4>📝 License</h4>
 
 Copyright © 2024 [WolfStar Project][profile-link]. <br /> This project is [MIT](./LICENSE) licensed.
 
