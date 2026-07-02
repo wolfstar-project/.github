@@ -7,7 +7,7 @@
 A guide to contributing to the WolfStar project<br/>
 
 [Discord Server] · [ESLint Setup][eslint] ·
-[Development Guide](#-running-typescript--gateway-based-wolfstar-project-bots-locally)
+[Development Guide](#running-typescript--gateway-based-wolfstar-project-bots-locally)
 
 </div>
 
