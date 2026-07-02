@@ -15,7 +15,7 @@ on:
         required: false
         type: string
         description: 'The platforms to build the Docker image for (JSON array with platform and runner)'
-        default: '[{"platform": "linux/amd64", "runner": "ubuntu-latest"}, {"platform": "linux/arm64", "runner": "ubuntu-24.04-arm"}]'
+        default: '[{"platform": "linux/amd64", "runner": "blacksmith-4vcpu-ubuntu-2404"}, {"platform": "linux/arm64", "runner": "blacksmith-4vcpu-ubuntu-2404-arm"}]'
       tag:
         required: false
         type: string
@@ -51,7 +51,6 @@ jobs:
         include: ${{ fromJson(inputs.platforms) }}
     steps:
       - name: Prepare
-        if: ${{ inputs.enablePlatforms == true }}
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
@@ -97,7 +96,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ strategy.job-index }}
+          name: digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
