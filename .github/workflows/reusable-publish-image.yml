@@ -36,6 +36,10 @@ on:
         type: string
         default: ${{ github.sha }}
         description: 'The commit hash to use for the Docker image'
+    secrets:
+      DEPOT_TOKEN:
+        required: true
+        description: 'Depot API token used to authenticate the build (see https://depot.dev/docs/cli/authentication)'
 
 env:
   REGISTRY: ghcr.io
