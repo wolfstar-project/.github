@@ -7,15 +7,15 @@ on:
         required: false
         type: string
         description: 'The image name to use for the Docker image'
-      enablePlatforms:
-        required: false
-        type: boolean
-        default: true
+      depotProject:
+        required: true
+        type: string
+        description: 'The Depot project ID to build this image with (see https://depot.dev)'
       platforms:
         required: false
         type: string
-        description: 'The platforms to build the Docker image for (JSON array with platform and runner)'
-        default: '[{"platform": "linux/amd64", "runner": "blacksmith-4vcpu-ubuntu-2404"}, {"platform": "linux/arm64", "runner": "blacksmith-4vcpu-ubuntu-2404-arm"}]'
+        description: 'Comma-separated platforms to build the Docker image for'
+        default: 'linux/amd64,linux/arm64'
       tag:
         required: false
         type: string
@@ -42,19 +42,13 @@ env:
   IMAGE_NAME: ${{ inputs.registryImage || github.repository }}
 
 jobs:
-  build:
-    name: Build ${{ matrix.platform }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(inputs.platforms) }}
+  build-and-push:
+    name: Build and push (multi-platform via Depot)
+    runs-on: depot-ubuntu-24.04-4
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -63,68 +57,13 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4.1.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push by digest
-        id: build
-        uses: useblacksmith/build-push-action@v2
-        with:
-          context: ${{ inputs.context }}
-          file: ${{ inputs.dockerFile }}
-          platforms: ${{ matrix.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-
-      - name: Export digest
-        run: |
-          mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-
-      - name: Upload digest
-        uses: actions/upload-artifact@v7
-        with:
-          name: digests-${{ env.PLATFORM_PAIR }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-          retention-days: 1
-
-  merge:
-    name: Create and push manifest list
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: build
-    steps:
-      - name: Download digests
-        uses: actions/download-artifact@v8
-        with:
-          path: /tmp/digests
-          pattern: digests-*
-          merge-multiple: true
-
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ inputs.tag }}
             type=raw,value=${{ inputs.commitHash || github.sha }}
 
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4.1.0
         with:
@@ -132,12 +71,15 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
-
-      - name: Inspect image
-        run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}
+      - name: Build and push
+        uses: depot/build-push-action@v1
+        with:
+          project: ${{ inputs.depotProject }}
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerFile }}
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+        env:
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
