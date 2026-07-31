@@ -83,9 +83,14 @@ jobs:
         # Sanitization is many-to-one (`feature/new-docs` and `feature-new-docs` both
         # map to `feature-new-docs`), so when it changed the name, append a short
         # hash of the original ref to keep distinct refs from overwriting each other.
+        # The `-<8 hex>` tail is a reserved discriminator: a literal ref that already
+        # ends in that pattern (e.g. `feature-new-docs-d927eadd`, which would collide
+        # with the hashed form of `feature/new-docs`) also gets a hash appended, so
+        # suffixed and unsuffixed names can never collide and the mapping stays
+        # injective while clean refs like `main` keep their flat names.
         run: |
           safe="${GITHUB_REF_NAME//[^A-Za-z0-9._-]/-}"
-          if [[ "$safe" != "$GITHUB_REF_NAME" ]]; then
+          if [[ "$safe" != "$GITHUB_REF_NAME" || "$safe" =~ -[0-9a-f]{8}$ ]]; then
             safe="${safe}-$(printf '%s' "$GITHUB_REF_NAME" | sha256sum | cut -c1-8)"
           fi
           echo "name=$safe" >> "$GITHUB_OUTPUT"
