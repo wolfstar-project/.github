@@ -121,6 +121,8 @@ jobs:
           PROJECT_NAME: ${{ inputs.project-name }}
           REF_NAME: ${{ needs.docgen.outputs.ref-name }}
           SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           if [[ ! "$REF_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
             echo "Refusing to publish: unsafe ref name '$REF_NAME'" >&2
@@ -136,14 +138,28 @@ jobs:
           # Reset-and-reapply retry loop: on a rejected push, hard-reset to the
           # latest docs branch and re-copy the generated JSON instead of rebasing,
           # so a concurrent write to the same file can never leave a conflict.
+          # A `.json.run` marker records which run last published each file; before
+          # every (re)apply we compare it against this run's id/attempt so a stale
+          # retry can never overwrite JSON already published by a newer run.
           for attempt in 1 2 3; do
+            marker="$PROJECT_NAME/$REF_NAME.json.run"
+            if [[ -f "$marker" ]]; then
+              read -r published_run published_attempt < "$marker" || true
+              if [[ "$published_run" =~ ^[0-9]+$ && "${published_attempt:-}" =~ ^[0-9]+$ ]] \
+                && { (( published_run > RUN_ID )) || { (( published_run == RUN_ID )) && (( published_attempt >= RUN_ATTEMPT )); }; }; then
+                echo "Skipping publish: run ${published_run} (attempt ${published_attempt}) already published newer docs for $PROJECT_NAME/$REF_NAME"
+                exit 0
+              fi
+            fi
             mkdir -p "$PROJECT_NAME"
             cp ../incoming/api.json "$PROJECT_NAME/$REF_NAME.json"
-            git add .
+            git add "$PROJECT_NAME/$REF_NAME.json"
             if git diff --cached --quiet; then
               echo "No changes to publish"
               exit 0
             fi
+            printf '%s %s\n' "$RUN_ID" "$RUN_ATTEMPT" > "$marker"
+            git add "$marker"
             git commit -m "docs($PROJECT_NAME): build for $REF_NAME ($SOURCE_SHA)"
             if git push; then
               exit 0
