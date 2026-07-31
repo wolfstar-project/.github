@@ -74,8 +74,16 @@ jobs:
       - name: Resolve ref name
         id: ref
         # Allowlist filename characters (slashes in e.g. `feature/new-docs` and any
-        # shell metacharacters become `-`) so the ref maps to a safe, flat file name
-        run: echo "name=${GITHUB_REF_NAME//[^A-Za-z0-9._-]/-}" >> "$GITHUB_OUTPUT"
+        # shell metacharacters become `-`) so the ref maps to a safe, flat file name.
+        # Sanitization is many-to-one (`feature/new-docs` and `feature-new-docs` both
+        # map to `feature-new-docs`), so when it changed the name, append a short
+        # hash of the original ref to keep distinct refs from overwriting each other.
+        run: |
+          safe="${GITHUB_REF_NAME//[^A-Za-z0-9._-]/-}"
+          if [[ "$safe" != "$GITHUB_REF_NAME" ]]; then
+            safe="${safe}-$(printf '%s' "$GITHUB_REF_NAME" | sha256sum | cut -c1-8)"
+          fi
+          echo "name=$safe" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
