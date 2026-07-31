@@ -112,22 +112,27 @@ jobs:
             echo "Refusing to publish: unsafe project name '$PROJECT_NAME'" >&2
             exit 1
           fi
-          mkdir -p "out/$PROJECT_NAME"
-          mv incoming/api.json "out/$PROJECT_NAME/$REF_NAME.json"
           cd out
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .
-          if git diff --cached --quiet; then
-            echo "No changes to publish"
-            exit 0
-          fi
-          git commit -m "docs($PROJECT_NAME): build for $REF_NAME ($SOURCE_SHA)"
+          # Reset-and-reapply retry loop: on a rejected push, hard-reset to the
+          # latest docs branch and re-copy the generated JSON instead of rebasing,
+          # so a concurrent write to the same file can never leave a conflict.
           for attempt in 1 2 3; do
+            mkdir -p "$PROJECT_NAME"
+            cp ../incoming/api.json "$PROJECT_NAME/$REF_NAME.json"
+            git add .
+            if git diff --cached --quiet; then
+              echo "No changes to publish"
+              exit 0
+            fi
+            git commit -m "docs($PROJECT_NAME): build for $REF_NAME ($SOURCE_SHA)"
             if git push; then
               exit 0
             fi
-            echo "Push rejected (attempt ${attempt}), rebasing onto latest docs branch"
-            git pull --rebase origin docs
+            echo "Push rejected (attempt ${attempt}), resetting onto latest docs branch"
+            git fetch origin docs
+            git reset --hard origin/docs
           done
-          git push
+          echo "Failed to publish docs after 3 attempts" >&2
+          exit 1
