@@ -40,6 +40,11 @@ jobs:
   docgen:
     name: Generate API JSON
     runs-on: ${{ inputs.operating-system }}
+    # `operating-system` may select a Windows runner, whose default shell is
+    # PowerShell; every run step here uses Bash syntax, so pin the shell.
+    defaults:
+      run:
+        shell: bash
     outputs:
       ref-name: ${{ steps.ref.outputs.name }}
     steps:
@@ -96,6 +101,10 @@ jobs:
     name: Publish to docs branch
     needs: docgen
     runs-on: ${{ inputs.operating-system }}
+    # Same as docgen: the publish script is Bash, so pin the shell for Windows runners.
+    defaults:
+      run:
+        shell: bash
     # Serializes uploads from the same caller repo. Races with other repos
     # pushing to the shared docs branch are handled by the rebase+retry below.
     concurrency:
