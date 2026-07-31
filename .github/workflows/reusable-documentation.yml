@@ -139,39 +139,46 @@ jobs:
           # Reset-and-reapply retry loop: on a rejected push, hard-reset to the
           # latest docs branch and re-copy the generated JSON instead of rebasing,
           # so a concurrent write to the same file can never leave a conflict.
-          # A `.json.run` marker records which repo+run last published each file
-          # and when that publish began; before every (re)apply we compare it
-          # against this run so a stale retry can never overwrite JSON already
-          # published by a newer run. Run ids are only comparable within one
-          # repository, so same-repo ordering uses run id + attempt, while a
-          # marker from a different repository (only possible when two callers
-          # misconfigure the same project-name) is ordered by publish start time.
-          publish_started_at=$(date -u +%s)
+          # A `.json.run` marker records which repo+run last published each file;
+          # before every (re)apply we compare it against this run so a stale retry
+          # can never overwrite JSON already published by a newer run. Run ids are
+          # only comparable within one repository, so same-repo ordering uses run
+          # id + attempt, while a marker from a different repository (only possible
+          # when two callers misconfigure the same project-name) is ordered by a
+          # publication token: zero-padded 10-digit publish start seconds, then
+          # repository, run id, and attempt as deterministic tie-breakers, compared
+          # as C-locale strings so equal-second publishes still have a total,
+          # collision-free order that every competing run resolves identically
+          # (the padding matches raw epoch seconds, so markers written by the
+          # previous seconds-only format keep comparing correctly). The marker is
+          # (re)written even when the generated JSON matches the current document,
+          # so an accepted no-op publish still leaves recency evidence that blocks
+          # older in-flight runs from overwriting it later.
+          export LC_ALL=C
+          publish_token="$(printf '%010d' "$(date -u +%s)")-${RUN_REPOSITORY}-${RUN_ID}-${RUN_ATTEMPT}"
           for attempt in 1 2 3; do
             marker="$PROJECT_NAME/$REF_NAME.json.run"
             if [[ -f "$marker" ]]; then
-              read -r published_repo published_run published_attempt published_at < "$marker" || true
+              read -r published_repo published_run published_attempt published_token < "$marker" || true
               if [[ "$published_repo" == "$RUN_REPOSITORY" \
                 && "$published_run" =~ ^[0-9]+$ && "${published_attempt:-}" =~ ^[0-9]+$ ]] \
                 && { (( published_run > RUN_ID )) || { (( published_run == RUN_ID )) && (( published_attempt >= RUN_ATTEMPT )); }; }; then
                 echo "Skipping publish: run ${published_run} (attempt ${published_attempt}) already published newer docs for $PROJECT_NAME/$REF_NAME"
                 exit 0
               fi
-              if [[ "$published_repo" != "$RUN_REPOSITORY" && "${published_at:-}" =~ ^[0-9]+$ ]] \
-                && (( published_at > publish_started_at )); then
-                echo "Skipping publish: $published_repo began publishing $PROJECT_NAME/$REF_NAME more recently"
+              if [[ "$published_repo" != "$RUN_REPOSITORY" && "${published_token:-}" > "$publish_token" ]]; then
+                echo "Skipping publish: $published_repo published $PROJECT_NAME/$REF_NAME with a newer publication token"
                 exit 0
               fi
             fi
             mkdir -p "$PROJECT_NAME"
             cp ../incoming/api.json "$PROJECT_NAME/$REF_NAME.json"
-            git add "$PROJECT_NAME/$REF_NAME.json"
+            printf '%s %s %s %s\n' "$RUN_REPOSITORY" "$RUN_ID" "$RUN_ATTEMPT" "$publish_token" > "$marker"
+            git add "$PROJECT_NAME/$REF_NAME.json" "$marker"
             if git diff --cached --quiet; then
               echo "No changes to publish"
               exit 0
             fi
-            printf '%s %s %s %s\n' "$RUN_REPOSITORY" "$RUN_ID" "$RUN_ATTEMPT" "$publish_started_at" > "$marker"
-            git add "$marker"
             git commit -m "docs($PROJECT_NAME): build for $REF_NAME ($SOURCE_SHA)"
             if git push; then
               exit 0
