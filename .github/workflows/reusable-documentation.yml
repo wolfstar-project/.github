@@ -1,0 +1,107 @@
+name: documentation
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: Folder name under the docs branch this project's JSON is published to
+        required: true
+        type: string
+      docgen-command:
+        description: Shell command that produces `docs-output/api.json` (run from the repo root, after install+build)
+        required: true
+        type: string
+      docs-repository:
+        description: The `owner/repo` whose `docs` branch aggregates every project's API JSON
+        required: false
+        default: wolfstar-project/stars-components
+        type: string
+      node-version:
+        description: Version spec of Node.js to use
+        required: false
+        default: '24'
+        type: string
+      operating-system:
+        description: The operating system to use (default `ubuntu-latest`)
+        required: false
+        default: ubuntu-latest
+        type: string
+    secrets:
+      WOLFSTAR_TOKEN:
+        description: Token with push access to `docs-repository`'s `docs` branch
+        required: true
+
+jobs:
+  docgen:
+    name: Generate API JSON
+    runs-on: ${{ inputs.operating-system }}
+    outputs:
+      ref-name: ${{ steps.ref.outputs.name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Generate API JSON
+        run: |
+          mkdir -p docs-output
+          ${{ inputs.docgen-command }}
+
+      - name: Resolve ref name
+        id: ref
+        run: echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-json-${{ inputs.project-name }}
+          path: docs-output/api.json
+          retention-days: 1
+
+  upload:
+    name: Publish to docs branch
+    needs: docgen
+    runs-on: ${{ inputs.operating-system }}
+    steps:
+      - name: Checkout docs branch
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.docs-repository }}
+          ref: docs
+          path: out
+          token: ${{ secrets.WOLFSTAR_TOKEN }}
+
+      - name: Download JSON artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-json-${{ inputs.project-name }}
+          path: incoming
+
+      - name: Move & commit
+        run: |
+          mkdir -p "out/${{ inputs.project-name }}"
+          mv incoming/api.json "out/${{ inputs.project-name }}/${{ needs.docgen.outputs.ref-name }}.json"
+          cd out
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+            exit 0
+          fi
+          git commit -m "docs(${{ inputs.project-name }}): build for ${{ needs.docgen.outputs.ref-name }} (${{ github.sha }})"
+          git push
