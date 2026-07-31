@@ -39,13 +39,13 @@ jobs:
       ref-name: ${{ steps.ref.outputs.name }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
@@ -63,11 +63,12 @@ jobs:
 
       - name: Resolve ref name
         id: ref
-        # Replace slashes (e.g. `feature/new-docs`) so the ref maps to a flat file name
-        run: echo "name=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+        # Allowlist filename characters (slashes in e.g. `feature/new-docs` and any
+        # shell metacharacters become `-`) so the ref maps to a safe, flat file name
+        run: echo "name=${GITHUB_REF_NAME//[^A-Za-z0-9._-]/-}" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: docs-json-${{ inputs.project-name }}
           path: docs-output/api.json
@@ -84,7 +85,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout docs branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: ${{ inputs.docs-repository }}
           ref: docs
@@ -92,15 +93,23 @@ jobs:
           token: ${{ secrets.WOLFSTAR_TOKEN }}
 
       - name: Download JSON artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: docs-json-${{ inputs.project-name }}
           path: incoming
 
       - name: Move & commit
+        env:
+          PROJECT_NAME: ${{ inputs.project-name }}
+          REF_NAME: ${{ needs.docgen.outputs.ref-name }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
-          mkdir -p "out/${{ inputs.project-name }}"
-          mv incoming/api.json "out/${{ inputs.project-name }}/${{ needs.docgen.outputs.ref-name }}.json"
+          if [[ ! "$REF_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "Refusing to publish: unsafe ref name '$REF_NAME'" >&2
+            exit 1
+          fi
+          mkdir -p "out/$PROJECT_NAME"
+          mv incoming/api.json "out/$PROJECT_NAME/$REF_NAME.json"
           cd out
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -109,7 +118,7 @@ jobs:
             echo "No changes to publish"
             exit 0
           fi
-          git commit -m "docs(${{ inputs.project-name }}): build for ${{ needs.docgen.outputs.ref-name }} (${{ github.sha }})"
+          git commit -m "docs($PROJECT_NAME): build for $REF_NAME ($SOURCE_SHA)"
           for attempt in 1 2 3; do
             if git push; then
               exit 0
