@@ -63,7 +63,8 @@ jobs:
 
       - name: Resolve ref name
         id: ref
-        run: echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        # Replace slashes (e.g. `feature/new-docs`) so the ref maps to a flat file name
+        run: echo "name=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
