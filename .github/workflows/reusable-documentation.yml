@@ -77,6 +77,11 @@ jobs:
     name: Publish to docs branch
     needs: docgen
     runs-on: ${{ inputs.operating-system }}
+    # Serializes uploads from the same caller repo. Races with other repos
+    # pushing to the shared docs branch are handled by the rebase+retry below.
+    concurrency:
+      group: docs-upload-${{ inputs.docs-repository }}
+      cancel-in-progress: false
     steps:
       - name: Checkout docs branch
         uses: actions/checkout@v6
@@ -105,4 +110,11 @@ jobs:
             exit 0
           fi
           git commit -m "docs(${{ inputs.project-name }}): build for ${{ needs.docgen.outputs.ref-name }} (${{ github.sha }})"
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}), rebasing onto latest docs branch"
+            git pull --rebase origin docs
+          done
           git push
