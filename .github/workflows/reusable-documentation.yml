@@ -11,6 +11,11 @@ on:
         description: Shell command that produces `docs-output/api.json` (run from the repo root, after install+build)
         required: true
         type: string
+      build-command:
+        description: Shell command that builds the packages before docgen (set to an empty string to skip)
+        required: false
+        default: pnpm build
+        type: string
       docs-repository:
         description: The `owner/repo` whose `docs` branch aggregates every project's API JSON
         required: false
@@ -58,7 +63,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm build
+        if: inputs.build-command != ''
+        run: ${{ inputs.build-command }}
 
       - name: Generate API JSON
         run: |
