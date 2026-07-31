@@ -108,6 +108,10 @@ jobs:
             echo "Refusing to publish: unsafe ref name '$REF_NAME'" >&2
             exit 1
           fi
+          if [[ ! "$PROJECT_NAME" =~ ^[A-Za-z0-9._-]+$ || "$PROJECT_NAME" == "." || "$PROJECT_NAME" == ".." ]]; then
+            echo "Refusing to publish: unsafe project name '$PROJECT_NAME'" >&2
+            exit 1
+          fi
           mkdir -p "out/$PROJECT_NAME"
           mv incoming/api.json "out/$PROJECT_NAME/$REF_NAME.json"
           cd out
