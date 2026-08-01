@@ -1,0 +1,205 @@
+name: documentation
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: Folder name under the docs branch this project's JSON is published to
+        required: true
+        type: string
+      docgen-command:
+        description: Shell command that produces `docs-output/api.json` (run from the repo root, after install+build)
+        required: true
+        type: string
+      build-command:
+        description: Shell command that builds the packages before docgen (set to an empty string to skip)
+        required: false
+        default: pnpm build
+        type: string
+      docs-repository:
+        description: The `owner/repo` whose `docs` branch aggregates every project's API JSON
+        required: false
+        default: wolfstar-project/stars-components
+        type: string
+      node-version:
+        description: Version spec of Node.js to use
+        required: false
+        default: '24'
+        type: string
+      operating-system:
+        description: The operating system to use (default `ubuntu-latest`)
+        required: false
+        default: ubuntu-latest
+        type: string
+    secrets:
+      WOLFSTAR_TOKEN:
+        description: Token with push access to `docs-repository`'s `docs` branch
+        required: true
+
+jobs:
+  docgen:
+    name: Generate API JSON
+    runs-on: ${{ inputs.operating-system }}
+    # `operating-system` may select a Windows runner, whose default shell is
+    # PowerShell; every run step here uses Bash syntax, so pin the shell.
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      ref-name: ${{ steps.ref.outputs.name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Some callers (e.g. stars-components) aggregate sibling repos as
+          # submodules that are part of the pnpm workspace and docgen input.
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        if: inputs.build-command != ''
+        run: ${{ inputs.build-command }}
+
+      - name: Generate API JSON
+        run: |
+          mkdir -p docs-output
+          ${{ inputs.docgen-command }}
+
+      - name: Resolve ref name
+        id: ref
+        # Allowlist filename characters (slashes in e.g. `feature/new-docs` and any
+        # shell metacharacters become `-`) so the ref maps to a safe, flat file name.
+        # Sanitization is many-to-one (`feature/new-docs` and `feature-new-docs` both
+        # map to `feature-new-docs`), so when it changed the name, append a short
+        # hash of the original ref to keep distinct refs from overwriting each other.
+        # The `-<8 hex>` tail is a reserved discriminator: a literal ref that already
+        # ends in that pattern (e.g. `feature-new-docs-d927eadd`, which would collide
+        # with the hashed form of `feature/new-docs`) also gets a hash appended, so
+        # suffixed and unsuffixed names can never collide and the mapping stays
+        # injective while clean refs like `main` keep their flat names.
+        run: |
+          safe="${GITHUB_REF_NAME//[^A-Za-z0-9._-]/-}"
+          if [[ "$safe" != "$GITHUB_REF_NAME" || "$safe" =~ -[0-9a-f]{8}$ ]]; then
+            safe="${safe}-$(printf '%s' "$GITHUB_REF_NAME" | sha256sum | cut -c1-8)"
+          fi
+          echo "name=$safe" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docs-json-${{ inputs.project-name }}
+          path: docs-output/api.json
+          retention-days: 1
+
+  upload:
+    name: Publish to docs branch
+    needs: docgen
+    runs-on: ${{ inputs.operating-system }}
+    # Same as docgen: the publish script is Bash, so pin the shell for Windows runners.
+    defaults:
+      run:
+        shell: bash
+    # Serializes uploads from the same caller repo. Races with other repos
+    # pushing to the shared docs branch are handled by the rebase+retry below.
+    concurrency:
+      group: docs-upload-${{ inputs.docs-repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout docs branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ inputs.docs-repository }}
+          ref: docs
+          path: out
+          token: ${{ secrets.WOLFSTAR_TOKEN }}
+
+      - name: Download JSON artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: docs-json-${{ inputs.project-name }}
+          path: incoming
+
+      - name: Move & commit
+        env:
+          PROJECT_NAME: ${{ inputs.project-name }}
+          REF_NAME: ${{ needs.docgen.outputs.ref-name }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ ! "$REF_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "Refusing to publish: unsafe ref name '$REF_NAME'" >&2
+            exit 1
+          fi
+          if [[ ! "$PROJECT_NAME" =~ ^[A-Za-z0-9._-]+$ || "$PROJECT_NAME" == "." || "$PROJECT_NAME" == ".." ]]; then
+            echo "Refusing to publish: unsafe project name '$PROJECT_NAME'" >&2
+            exit 1
+          fi
+          cd out
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          # Reset-and-reapply retry loop: on a rejected push, hard-reset to the
+          # latest docs branch and re-copy the generated JSON instead of rebasing,
+          # so a concurrent write to the same file can never leave a conflict.
+          # A `.json.run` marker records which repo+run last published each file;
+          # before every (re)apply we compare it against this run so a stale retry
+          # can never overwrite JSON already published by a newer run. Run ids are
+          # only comparable within one repository, so same-repo ordering uses run
+          # id + attempt, while a marker from a different repository (only possible
+          # when two callers misconfigure the same project-name) is ordered by a
+          # publication token: zero-padded 10-digit publish start seconds, then
+          # repository, run id, and attempt as deterministic tie-breakers, compared
+          # as C-locale strings so equal-second publishes still have a total,
+          # collision-free order that every competing run resolves identically
+          # (the padding matches raw epoch seconds, so markers written by the
+          # previous seconds-only format keep comparing correctly). The marker is
+          # (re)written even when the generated JSON matches the current document,
+          # so an accepted no-op publish still leaves recency evidence that blocks
+          # older in-flight runs from overwriting it later.
+          export LC_ALL=C
+          publish_token="$(printf '%010d' "$(date -u +%s)")-${RUN_REPOSITORY}-${RUN_ID}-${RUN_ATTEMPT}"
+          for attempt in 1 2 3; do
+            marker="$PROJECT_NAME/$REF_NAME.json.run"
+            if [[ -f "$marker" ]]; then
+              read -r published_repo published_run published_attempt published_token < "$marker" || true
+              if [[ "$published_repo" == "$RUN_REPOSITORY" \
+                && "$published_run" =~ ^[0-9]+$ && "${published_attempt:-}" =~ ^[0-9]+$ ]] \
+                && { (( published_run > RUN_ID )) || { (( published_run == RUN_ID )) && (( published_attempt >= RUN_ATTEMPT )); }; }; then
+                echo "Skipping publish: run ${published_run} (attempt ${published_attempt}) already published newer docs for $PROJECT_NAME/$REF_NAME"
+                exit 0
+              fi
+              if [[ "$published_repo" != "$RUN_REPOSITORY" && "${published_token:-}" > "$publish_token" ]]; then
+                echo "Skipping publish: $published_repo published $PROJECT_NAME/$REF_NAME with a newer publication token"
+                exit 0
+              fi
+            fi
+            mkdir -p "$PROJECT_NAME"
+            cp ../incoming/api.json "$PROJECT_NAME/$REF_NAME.json"
+            printf '%s %s %s %s\n' "$RUN_REPOSITORY" "$RUN_ID" "$RUN_ATTEMPT" "$publish_token" > "$marker"
+            git add "$PROJECT_NAME/$REF_NAME.json" "$marker"
+            if git diff --cached --quiet; then
+              echo "No changes to publish"
+              exit 0
+            fi
+            git commit -m "docs($PROJECT_NAME): build for $REF_NAME ($SOURCE_SHA)"
+            if git push; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}), resetting onto latest docs branch"
+            git fetch origin docs
+            git reset --hard origin/docs
+          done
+          echo "Failed to publish docs after 3 attempts" >&2
+          exit 1
