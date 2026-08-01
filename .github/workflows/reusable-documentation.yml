@@ -19,7 +19,7 @@ on:
       docs-repository:
         description: The `owner/repo` whose `docs` branch aggregates every project's API JSON
         required: false
-        default: wolfstar-project/stars-components
+        default: wolfstar-project/docs
         type: string
       node-version:
         description: Version spec of Node.js to use
