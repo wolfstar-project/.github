@@ -137,10 +137,7 @@ jobs:
     uses: wolfstar-project/.github/.github/workflows/reusable-publish-image.yml@main
     with:
       registryImage: wolfstar-project/wolfstar
-      depotProject: your-depot-project-id
       tag: latest
-    secrets:
-      DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
 ```
 
 </div>
