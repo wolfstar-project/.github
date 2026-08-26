@@ -49,7 +49,7 @@ jobs:
       ref-name: ${{ steps.ref.outputs.name }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Some callers (e.g. stars-components) aggregate sibling repos as
           # submodules that are part of the pnpm workspace and docgen input.
@@ -117,7 +117,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout docs branch
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ inputs.docs-repository }}
           ref: docs
