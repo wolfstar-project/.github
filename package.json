@@ -10,7 +10,7 @@
 		"format:check": "oxfmt --check"
 	},
 	"devDependencies": {
-		"oxfmt": "^0.56.0"
+		"oxfmt": "^0.67.0"
 	},
 	"resolutions": {
 		"ansi-regex": "^6.1.0",
