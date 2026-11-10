@@ -32,7 +32,8 @@ on:
       socket-firewall:
         description: >-
           Run the install command through Socket Firewall Free (`sfw`) to block malicious dependency fetches (default
-          `false`). The install command must then be a plain package manager invocation, not a shell script.
+          `false`). Linux runners only. The install command must then be a plain package manager invocation, not a
+          shell script; quotes group words but nothing is expanded.
         required: false
         default: false
         type: boolean
@@ -122,6 +123,10 @@ jobs:
           SFW_VERSION: v1.15.4
         run: |
           set -euo pipefail
+          if [ "$RUNNER_OS" != "Linux" ]; then
+            echo "::error::socket-firewall supports Linux runners only, got $RUNNER_OS"
+            exit 1
+          fi
           case "$(uname -m)" in
             x86_64) asset=sfw-free-linux-x86_64 ;;
             aarch64 | arm64) asset=sfw-free-linux-arm64 ;;
@@ -141,8 +146,13 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$USE_SFW" = "true" ]; then
-            # `sfw <package manager> install …` fetches through the firewall; no shell wrapper
-            read -ra install_argv <<< "$INSTALL_COMMAND"
+            # `sfw <package manager> install …` fetches through the firewall; no shell wrapper.
+            # xargs honours quotes and backslashes but never expands `$(…)` or variables.
+            mapfile -d '' -t install_argv < <(printf '%s' "$INSTALL_COMMAND" | xargs -r printf '%s\0')
+            if [ "${#install_argv[@]}" -eq 0 ]; then
+              echo "::error::install-command is empty"
+              exit 1
+            fi
             sfw "${install_argv[@]}"
           else
             bash -euo pipefail -c "$INSTALL_COMMAND"
