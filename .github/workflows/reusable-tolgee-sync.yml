@@ -1,0 +1,247 @@
+name: Tolgee Translation Sync
+
+# Pulls translations from Tolgee and keeps a single, bot-owned pull request up to date.
+#
+# The caller owns the schedule and the concurrency group, and must grant `contents: read`.
+# Everything that differs per repository (install, pull, validation, where the locale files
+# live) is an input, so the sync logic itself exists only here.
+
+on:
+  workflow_call:
+    inputs:
+      operating-system:
+        description: The runner to use (default `ubuntu-latest`)
+        required: false
+        default: ubuntu-latest
+        type: string
+      timeout-minutes:
+        description: Timeout of the sync job in minutes (default `20`)
+        required: false
+        default: 20
+        type: number
+      node-version:
+        description: Version spec of Node.js to use (default `24`)
+        required: false
+        default: '24'
+        type: string
+      install-command:
+        description: Command that installs dependencies. Keep lifecycle scripts off, the job holds secrets.
+        required: false
+        default: pnpm install --frozen-lockfile --ignore-scripts
+        type: string
+      pull-command:
+        description: Command that pulls translations from Tolgee and remaps them onto the local locale directories
+        required: false
+        default: pnpm tolgee:pull
+        type: string
+      validate-command:
+        description: Optional command run after the pull. A failure stops the job before anything is committed.
+        required: false
+        default: ''
+        type: string
+      paths:
+        description: Space-separated paths (relative to the repository root) that hold the synced locale files
+        required: true
+        type: string
+      branch:
+        description: Fixed branch the sync pushes to; re-runs update the existing pull request (default `i18n`)
+        required: false
+        default: i18n
+        type: string
+      base-branch:
+        description: Branch the pull request targets (default `main`)
+        required: false
+        default: main
+        type: string
+      commit-message:
+        description: Commit message and pull request title
+        required: false
+        default: 'chore(i18n): update translations from Tolgee'
+        type: string
+      report-file:
+        description: File the pull command may write; its content becomes the pull request body when present
+        required: false
+        default: .tolgee-report.md
+        type: string
+      bot-user:
+        description: GitHub login of the account behind `WOLFSTAR_TOKEN`
+        required: false
+        default: wolfstarbot
+        type: string
+      bot-email:
+        description: Commit email of the bot account
+        required: false
+        default: 169603024+wolfstarbot@users.noreply.github.com
+        type: string
+    secrets:
+      TOLGEE_API_KEY:
+        description: Tolgee Project API Key or PAT
+        required: true
+      WOLFSTAR_TOKEN:
+        description: Token that pushes the sync branch and opens the pull request
+        required: true
+
+permissions: {}
+
+jobs:
+  sync-translations:
+    name: 🌐 Sync translations from Tolgee
+    runs-on: ${{ inputs.operating-system }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read # checkout repository; the sync branch is pushed with WOLFSTAR_TOKEN
+
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # The commit step sets an authenticated remote from WOLFSTAR_TOKEN
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: bash -euo pipefail -c "$INSTALL_COMMAND"
+
+      - name: Pull translations from Tolgee
+        env:
+          TOLGEE_API_KEY: ${{ secrets.TOLGEE_API_KEY }}
+          PULL_COMMAND: ${{ inputs.pull-command }}
+        run: bash -euo pipefail -c "$PULL_COMMAND"
+
+      - name: Validate translations
+        if: ${{ inputs.validate-command != '' }}
+        env:
+          VALIDATE_COMMAND: ${{ inputs.validate-command }}
+        run: bash -euo pipefail -c "$VALIDATE_COMMAND"
+
+      - name: Commit any changes and create a pull request
+        env:
+          GITHUB_TOKEN: ${{ secrets.WOLFSTAR_TOKEN }}
+          SYNC_PATHS: ${{ inputs.paths }}
+          BRANCH: ${{ inputs.branch }}
+          BASE_BRANCH: ${{ inputs.base-branch }}
+          COMMIT_MESSAGE: ${{ inputs.commit-message }}
+          REPORT_FILE: ${{ inputs.report-file }}
+          BOT: ${{ inputs.bot-user }}
+          BOT_EMAIL: ${{ inputs.bot-email }}
+        run: |
+          set -euo pipefail
+
+          read -ra PATHS <<< "$SYNC_PATHS"
+          git add -- "${PATHS[@]}"
+
+          git remote set-url origin "https://${GITHUB_TOKEN}:x-oauth-basic@github.com/${GITHUB_REPOSITORY}.git"
+
+          # Whether the tip of origin/$BRANCH provably belongs to the automation. Only
+          # server-authenticated signals count (git ancestry against the base branch, closed PR
+          # head SHAs and the pusher in the repository activity log); commit author/committer
+          # emails are caller-controlled metadata and are deliberately not trusted. A
+          # collaborator can push unmerged work to the branch of an open PR, which moves both
+          # the branch tip and the PR's head SHA, so PR authorship alone proves nothing about
+          # the tip. The signals, in order:
+          #   1. the tip is already an ancestor of the base branch (nothing lost);
+          #   2. the tip matches the frozen head SHA of a closed or merged bot-authored PR
+          #      (covers squash-merged sync PRs; closed PR head SHAs no longer track the
+          #      branch, unlike open ones). Skipped with "open-pr", because a PR the bot is
+          #      about to close would then vouch for whatever is on the branch;
+          #   3. the tip was pushed by the bot itself, per the pusher recorded server-side in
+          #      the repository activity log.
+          tip_is_bot_owned() {
+            local TIP="$1" MODE="${2:-}"
+            if git merge-base --is-ancestor "$TIP" "origin/$BASE_BRANCH"; then
+              return 0
+            fi
+            if [ "$MODE" != "open-pr" ]; then
+              local MATCHES
+              MATCHES="$(gh pr list --head "$BRANCH" --state closed --json author,headRefOid | jq -r --arg tip "$TIP" --arg bot "$BOT" '[.[] | select(.headRefOid == $tip and .author.login == $bot)] | length')"
+              # Fail closed: an API error leaves MATCHES empty, which must not count as proof.
+              if [ "${MATCHES:-0}" -gt 0 ] 2>/dev/null; then
+                return 0
+              fi
+            fi
+            # Most recent activity on the ref (desc order); it must be the push that produced
+            # the tip, performed by the bot.
+            local PUSHED
+            PUSHED="$(gh api "repos/$GITHUB_REPOSITORY/activity?ref=refs/heads/$BRANCH&per_page=1" | jq -r --arg tip "$TIP" --arg bot "$BOT" '[.[] | select(.after == $tip and .actor.login == $bot)] | length')"
+            # Same here: only a positive count proves ownership, never an empty answer.
+            [ "${PUSHED:-0}" -gt 0 ] 2>/dev/null
+          }
+
+          if git diff-index --quiet HEAD --; then
+            echo "No translation changes to commit"
+            # An open sync PR with nothing left to sync is stale: the base branch already holds
+            # (or has since fixed) everything it carries, and merging it would only revert
+            # work. Close it only when the bot opened it and its tip provably is the bot's own
+            # push, so work a collaborator added to the branch stays open. The branch itself
+            # is left alone.
+            git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null || true
+            STALE_TIP="$(git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" || true)"
+            STALE_PRS="$(gh pr list --head "$BRANCH" --author "$BOT" --state open --json number --jq '.[].number')"
+            for PR_NUMBER in $STALE_PRS; do
+              if [ -n "$STALE_TIP" ] && tip_is_bot_owned "$STALE_TIP" open-pr; then
+                echo "Closing stale sync PR #$PR_NUMBER"
+                gh pr close "$PR_NUMBER" --comment "Closing: $BASE_BRANCH already contains every translation this sync carried, so there is nothing left to merge. The next sync with changes opens a fresh PR."
+              else
+                echo "::warning::Sync PR #$PR_NUMBER looks stale, but the tip of '$BRANCH' cannot be proven to belong to $BOT; leaving it open for a human to look at."
+              fi
+            done
+            exit 0
+          fi
+
+          # Commit as the account behind WOLFSTAR_TOKEN
+          git config --local user.name "$BOT"
+          git config --local user.email "$BOT_EMAIL"
+
+          # Reuse a single fixed branch so re-runs update the existing PR instead of spawning
+          # a new one each time, but refuse to touch it unless ownership is proven. The checks
+          # rely exclusively on server-authenticated signals (PR authorship and head SHAs from
+          # the GitHub API, and git ancestry against the base branch).
+          OPEN_PRS="$(gh pr list --head "$BRANCH" --state open --json author)"
+          OPEN_PR_COUNT="$(printf '%s' "$OPEN_PRS" | jq 'length')"
+          NON_BOT_AUTHORS="$(printf '%s' "$OPEN_PRS" | jq -r --arg bot "$BOT" '[.[].author.login | select(. != $bot)] | unique | join(", ")')"
+          if [ -n "$NON_BOT_AUTHORS" ]; then
+            echo "::error::Refusing to reuse the '$BRANCH' branch: open PR(s) on it are owned by $NON_BOT_AUTHORS, not $BOT"
+            exit 1
+          fi
+
+          git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null || true
+          REMOTE_TIP="$(git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" || true)"
+          # Validate the current remote tip even when a bot-authored PR is open: PR authorship
+          # alone proves nothing about the tip, so only overwrite the branch when
+          # tip_is_bot_owned vouches for it.
+          if [ -n "$REMOTE_TIP" ] && ! tip_is_bot_owned "$REMOTE_TIP"; then
+            echo "::error::Remote branch '$BRANCH' tip $REMOTE_TIP cannot be proven to belong to $BOT (unverified, unmerged work); refusing to force-push over it. Delete or merge the stale branch to re-enable the sync."
+            exit 1
+          fi
+
+          git checkout -B "$BRANCH"
+          git commit -sam "$COMMIT_MESSAGE"
+          # --force-with-lease pins the expected remote tip (empty = branch must not exist),
+          # so the push fails safely if the ref moved after the ownership validation above
+          # instead of clobbering the newer commit.
+          git push --force-with-lease="refs/heads/$BRANCH:$REMOTE_TIP" --set-upstream origin "$BRANCH"
+
+          # The pull command may write a summary of what was applied and of the translations
+          # it rejected. Fall back to the plain message if absent.
+          BODY_FILE="$REPORT_FILE"
+          if [ ! -f "$BODY_FILE" ]; then
+            BODY_FILE="$(mktemp)"
+            printf '%s\n' "*bleep bloop* I synced the translations from Tolgee" > "$BODY_FILE"
+          fi
+          if [ "$OPEN_PR_COUNT" = "0" ]; then
+            gh pr create -t "$COMMIT_MESSAGE" -F "$BODY_FILE" -B "$BASE_BRANCH" -H "$BRANCH"
+          else
+            echo "An open PR for the $BRANCH branch already exists, refreshing its body"
+            gh pr edit "$BRANCH" -F "$BODY_FILE"
+          fi
