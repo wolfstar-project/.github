@@ -29,6 +29,13 @@ on:
         required: false
         default: pnpm install --frozen-lockfile --ignore-scripts
         type: string
+      socket-firewall:
+        description: >-
+          Run the install command through Socket Firewall Free (`sfw`) to block malicious dependency fetches (default
+          `false`). The install command must then be a plain package manager invocation, not a shell script.
+        required: false
+        default: false
+        type: boolean
       pull-command:
         description: Command that pulls translations from Tolgee and remaps them onto the local locale directories
         required: false
@@ -108,10 +115,38 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
 
+      - name: Install Socket Firewall
+        if: ${{ inputs.socket-firewall }}
+        env:
+          # Pinned release of SocketDev/sfw-free; bump together with a reviewed upgrade
+          SFW_VERSION: v1.15.4
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) asset=sfw-free-linux-x86_64 ;;
+            aarch64 | arm64) asset=sfw-free-linux-arm64 ;;
+            *) echo "::error::Socket Firewall has no Linux build for $(uname -m)"; exit 1 ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/sfw"
+          curl -fsSL --retry 2 --connect-timeout 5 --max-time 60 \
+            -o "$RUNNER_TEMP/sfw/sfw" \
+            "https://github.com/SocketDev/sfw-free/releases/download/${SFW_VERSION}/${asset}"
+          chmod 0755 "$RUNNER_TEMP/sfw/sfw"
+          echo "$RUNNER_TEMP/sfw" >> "$GITHUB_PATH"
+
       - name: Install dependencies
         env:
           INSTALL_COMMAND: ${{ inputs.install-command }}
-        run: bash -euo pipefail -c "$INSTALL_COMMAND"
+          USE_SFW: ${{ inputs.socket-firewall }}
+        run: |
+          set -euo pipefail
+          if [ "$USE_SFW" = "true" ]; then
+            # `sfw <package manager> install …` fetches through the firewall; no shell wrapper
+            read -ra install_argv <<< "$INSTALL_COMMAND"
+            sfw "${install_argv[@]}"
+          else
+            bash -euo pipefail -c "$INSTALL_COMMAND"
+          fi
 
       - name: Pull translations from Tolgee
         env:
