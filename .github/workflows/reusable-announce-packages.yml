@@ -1,0 +1,95 @@
+name: Announce packages
+
+# Posts Sapphire-style release notes for published npm packages to a Discord
+# webhook, built from each package's changelog and the pull request titles. No
+# AI: the same release renders the same message. Call it from the job that
+# follows the publish:
+#
+#   announce:
+#     needs: release
+#     if: needs.release.outputs.published == 'true'
+#     permissions:
+#       contents: read
+#       pull-requests: read
+#     uses: wolfstar-project/.github/.github/workflows/reusable-announce-packages.yml@main
+#     with:
+#       published-packages: ${{ needs.release.outputs.publishedPackages }}
+#       role-id: ${{ vars.DISCORD_PACKAGES_ROLE_ID }}
+#     secrets:
+#       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_PACKAGES_WEBHOOK_URL }}
+#
+# See `.github/actions/announce/README.md`.
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: Render into the job summary and send nothing.
+        type: boolean
+        default: false
+      published-packages:
+        description: "The changesets/action `publishedPackages` output, or `name@version` entries separated by commas."
+        type: string
+        default: "[]"
+      packages-dir:
+        description: The folder that holds the packages.
+        type: string
+        default: packages
+      role-id:
+        description: The role pinged by the first message.
+        type: string
+        default: ""
+      thread-id:
+        description: Post into this thread of a forum or media channel.
+        type: string
+        default: ""
+      username:
+        description: Override the webhook's display name.
+        type: string
+        default: ""
+      avatar-url:
+        description: Override the webhook's avatar.
+        type: string
+        default: ""
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        description: The Discord webhook of the announcement channel. Without it nothing is sent.
+        required: false
+      RELEASE_WEBHOOK_URL:
+        description: Optional HTTPS endpoint for signed lifecycle callbacks.
+        required: false
+      RELEASE_WEBHOOK_SECRET:
+        description: HMAC key for the callbacks.
+        required: false
+
+permissions: {}
+
+jobs:
+  announce:
+    name: 📣 Announce packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # the changelogs
+      pull-requests: read # pull request titles for the bullets
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A failed announcement never fails a release: the packages are already out.
+      - name: Announce
+        continue-on-error: true
+        uses: wolfstar-project/.github/.github/actions/announce@main
+        with:
+          mode: packages
+          published-packages: ${{ inputs.published-packages }}
+          packages-dir: ${{ inputs.packages-dir }}
+          dry-run: ${{ inputs.dry-run }}
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          role-id: ${{ inputs.role-id }}
+          thread-id: ${{ inputs.thread-id }}
+          username: ${{ inputs.username }}
+          avatar-url: ${{ inputs.avatar-url }}
+          callback-url: ${{ secrets.RELEASE_WEBHOOK_URL }}
+          callback-secret: ${{ secrets.RELEASE_WEBHOOK_SECRET }}
