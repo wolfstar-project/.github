@@ -80,7 +80,7 @@ jobs:
       # A failed announcement never fails a release: the packages are already out.
       - name: Announce
         continue-on-error: true
-        uses: wolfstar-project/.github/.github/actions/announce@main
+        uses: wolfstar-project/.github/.github/actions/announce@8ddb2c9eb8b6d31cdf4d65974c9fdc3ab5929eb4
         with:
           mode: packages
           published-packages: ${{ inputs.published-packages }}

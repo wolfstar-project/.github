@@ -155,7 +155,7 @@ jobs:
 
       - name: Draft
         id: announce
-        uses: wolfstar-project/.github/.github/actions/announce@main
+        uses: wolfstar-project/.github/.github/actions/announce@8ddb2c9eb8b6d31cdf4d65974c9fdc3ab5929eb4
         with:
           mode: draft
           kind: ${{ inputs.kind }}
@@ -213,7 +213,7 @@ jobs:
           path: ${{ runner.temp }}/announcement
 
       - name: Post
-        uses: wolfstar-project/.github/.github/actions/announce@main
+        uses: wolfstar-project/.github/.github/actions/announce@8ddb2c9eb8b6d31cdf4d65974c9fdc3ab5929eb4
         with:
           mode: post
           output-dir: ${{ runner.temp }}/announcement
