@@ -10,6 +10,7 @@ export interface PullRequest {
 	user: { login: string; type?: string } | null;
 	labels: { name: string }[];
 	base: { ref: string };
+	head: { ref: string };
 }
 
 export interface IssueComment {
@@ -21,6 +22,27 @@ export interface IssueComment {
 interface CompareCommit {
 	sha: string;
 	commit: { message: string };
+}
+
+const COMPARE_PAGE_LIMIT = 50;
+
+const RETRY_DELAYS = [500, 1500, 4000];
+
+/** Runs `task`, retrying after each delay in `delays`. The last error propagates. */
+export async function retry<T>(
+	task: () => Promise<T>,
+	delays: number[] = RETRY_DELAYS,
+	sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+): Promise<T> {
+	for (const delay of delays) {
+		try {
+			return await task();
+		} catch {
+			// Retried after the delay; the final attempt below reports the error.
+			await sleep(delay);
+		}
+	}
+	return task();
 }
 
 export class GitHub {
@@ -81,17 +103,25 @@ export class GitHub {
 		return this.paginate<PullRequest>(`/repos/${this.slug}/pulls?state=open&sort=updated&direction=desc`, limit);
 	}
 
-	/** Commits reachable from `head` and not from `base`, oldest first (the compare API caps at 250). */
+	async defaultBranch(): Promise<string> {
+		return (await this.request<{ default_branch: string }>(`/repos/${this.slug}`)).default_branch;
+	}
+
+	/**
+	 * Commits reachable from `head` and not from `base`, oldest first. It reads every
+	 * page, and throws past `COMPARE_PAGE_LIMIT` pages: a partial range would drop
+	 * pull requests from the announcement without a sign.
+	 */
 	async commitsBetween(base: string, head: string): Promise<CompareCommit[]> {
 		const commits: CompareCommit[] = [];
-		for (let page = 1; page <= 3; page++) {
+		for (let page = 1; page <= COMPARE_PAGE_LIMIT; page++) {
 			const result = await this.request<{ commits: CompareCommit[] }>(
 				`/repos/${this.slug}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}?per_page=100&page=${page}`
 			);
 			commits.push(...result.commits);
-			if (result.commits.length < 100) break;
+			if (result.commits.length < 100) return commits;
 		}
-		return commits;
+		throw new Error(`${base}...${head} spans more than ${COMPARE_PAGE_LIMIT * 100} commits: pick a closer from-ref.`);
 	}
 
 	pullsForCommit(sha: string): Promise<PullRequest[]> {

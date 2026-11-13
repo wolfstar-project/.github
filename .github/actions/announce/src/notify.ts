@@ -12,10 +12,20 @@ export interface Notifier {
 	(event: ReleaseEvent, details?: Record<string, unknown>): Promise<void>;
 }
 
+/**
+ * The place of each event in a release. The steps of a draft run in separate
+ * processes, so a counter in memory would restart at 1 in each of them: a fixed
+ * position lets a receiver order the events without shared state.
+ */
+export const EVENT_SEQUENCE: Record<ReleaseEvent, number> = { started: 1, drafted: 2, completed: 3, failed: 4 };
+
 interface NotifierOptions {
 	url?: string;
 	secret?: string;
+	/** What the action does: `packages`, `draft`, or `post`. */
 	mode: string;
+	/** What is announced: `bot` or `site`. `null` for packages, which have no kind. */
+	kind: string | null;
 	repository: string;
 	fetch?: typeof fetch;
 	sleep?: (ms: number) => Promise<void>;
@@ -50,7 +60,6 @@ export function createNotifier(options: NotifierOptions): Notifier {
 
 	const send = options.fetch ?? fetch;
 	const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-	let sequence = 0;
 
 	return async (event, details = {}) => {
 		const timestamp = new Date().toISOString();
@@ -59,9 +68,10 @@ export function createNotifier(options: NotifierOptions): Notifier {
 			schemaVersion: 1,
 			id,
 			timestamp,
-			sequence: ++sequence,
+			sequence: EVENT_SEQUENCE[event],
 			event,
 			mode: options.mode,
+			kind: options.kind,
 			repository: options.repository,
 			runId: process.env.GITHUB_RUN_ID ?? null,
 			runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? null,

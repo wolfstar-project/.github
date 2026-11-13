@@ -216,6 +216,7 @@ jobs:
         uses: wolfstar-project/.github/.github/actions/announce@main
         with:
           mode: post
+          kind: ${{ inputs.kind }}
           output-dir: ${{ runner.temp }}/announcement
           webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           thread-id: ${{ inputs.thread-id }}

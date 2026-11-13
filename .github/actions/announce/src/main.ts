@@ -13,10 +13,13 @@ const mode = input('mode');
 const repository = input('repository', process.env.GITHUB_REPOSITORY ?? '');
 const dryRun = booleanInput('dry-run');
 const outputDir = resolve(input('output-dir', join(process.env.RUNNER_TEMP ?? '.', 'announcement')));
+const kind = input('kind', 'bot') === 'site' ? 'site' : 'bot';
 const notify: Notifier = createNotifier({
 	url: process.env.RELEASE_WEBHOOK_URL,
 	secret: process.env.RELEASE_WEBHOOK_SECRET,
-	mode: input('kind', mode),
+	// `collect` and `render` are the two steps of the `draft` mode of the action.
+	mode: mode === 'collect' || mode === 'render' ? 'draft' : mode,
+	kind: mode === 'packages' ? null : kind,
 	repository
 });
 
@@ -66,7 +69,6 @@ async function packages(): Promise<void> {
 }
 
 async function collect(): Promise<void> {
-	const kind = input('kind', 'bot') === 'site' ? 'site' : 'bot';
 	const format = input('format', 'auto');
 	const fromRef = input('from-ref');
 	if (!fromRef) throw new Error('from-ref is required in draft mode');

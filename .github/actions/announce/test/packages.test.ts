@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { changelogSection, parseSection, renderPackagesMessages, type PackageRelease, type TitleLookup } from '../src/packages.ts';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { changelogSection, parseSection, readReleases, renderPackagesMessages, type PackageRelease, type TitleLookup } from '../src/packages.ts';
 
 const CHANGELOG = `# @wolfstar/cli
 
@@ -137,5 +140,45 @@ describe('published packages input', () => {
 			{ name: '@wolfstar/kit', version: '0.3.1' }
 		]);
 		assert.throws(() => parsePublished('cli'), /name@version/);
+	});
+});
+
+describe('release notes on disk', () => {
+	async function checkout(changelog: string | null): Promise<string> {
+		const root = await mkdtemp(join(tmpdir(), 'announce-packages-'));
+		await mkdir(join(root, 'cli'));
+		await writeFile(join(root, 'cli', 'package.json'), JSON.stringify({ name: '@wolfstar/cli' }));
+		if (changelog !== null) await writeFile(join(root, 'cli', 'CHANGELOG.md'), changelog);
+		return root;
+	}
+
+	it('reads the section of a published version', async () => {
+		const root = await checkout(CHANGELOG);
+		const [release] = await readReleases([{ name: '@wolfstar/cli', version: '2.12.0' }], root);
+		assert.equal(release!.entries.length, 3);
+	});
+
+	it('fails on a version, changelog, or package the checkout does not have', async () => {
+		const root = await checkout(CHANGELOG);
+		await assert.rejects(readReleases([{ name: '@wolfstar/cli', version: '9.9.9' }], root), /@wolfstar\/cli@9\.9\.9 \(no "## 9\.9\.9" section\)/);
+		await assert.rejects(readReleases([{ name: '@wolfstar/other', version: '1.0.0' }], root), /no package folder/);
+		await assert.rejects(readReleases([{ name: '@wolfstar/cli', version: '2.12.0' }], await checkout(null)), /CHANGELOG\.md unreadable/);
+	});
+});
+
+describe('dependency-only releases', () => {
+	it('keeps every link whole when the list outgrows a message', async () => {
+		const many: PackageRelease[] = Array.from({ length: 80 }, (_, index) => ({
+			name: `@wolfstar/long-package-name-${index}`,
+			version: '1.0.0',
+			entries: [],
+			dependencies: []
+		}));
+		const messages = await renderPackagesMessages(many, { repository: 'o/r', roleId: '', date: '2026-11-06', lookup });
+		const text = messages.map((message) => message.payload.content!).join('\n');
+		assert.ok(messages.length > 1);
+		for (const message of messages) assert.ok(message.payload.content!.length <= 2000);
+		for (const pkg of many) assert.ok(text.includes(`[${pkg.name}@${pkg.version}](<https://github.com/o/r/releases/tag/`), pkg.name);
+		assert.ok(text.split('\n').every((line) => line.startsWith('-# ')));
 	});
 });

@@ -27,7 +27,7 @@ With `kind: site`, the action reads the pr-evidence comment of every merged pull
 
 ## Signed callbacks
 
-Following the release notifications of [discordjs/discord.js#11673](https://github.com/discordjs/discord.js/pull/11673), every mode can POST `started`, `drafted`, `completed`, and `failed` events to `callback-url`. Each body is JSON with `schemaVersion`, `id`, `sequence`, `event`, `repository`, `runId`, `runUrl`, and event details, and carries:
+Following the release notifications of [discordjs/discord.js#11673](https://github.com/discordjs/discord.js/pull/11673), every mode can POST `started`, `drafted`, `completed`, and `failed` events to `callback-url`. Each body is JSON with `schemaVersion`, `id`, `sequence` (a fixed position: `started` 1, `drafted` 2, `completed` 3, `failed` 4), `event`, `mode` (`packages`, `draft`, or `post`), `kind` (`bot`, `site`, or `null` for packages), `repository`, `runId`, `runUrl`, and event details, and carries:
 
 - `X-Release-Delivery`: the event ID,
 - `X-Release-Timestamp`: an ISO timestamp,

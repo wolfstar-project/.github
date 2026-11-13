@@ -157,22 +157,38 @@ export async function packageDirectories(root: string): Promise<Map<string, stri
 	return directories;
 }
 
+/**
+ * Reads the changelog section of every published package. Changesets writes a section
+ * for each release, dependency-only ones included, so a missing folder, changelog, or
+ * section means the checkout does not match the release. It throws instead of
+ * announcing a release as "dependency updates only".
+ */
 export async function readReleases(published: PublishedPackage[], packagesRoot: string): Promise<PackageRelease[]> {
 	const directories = await packageDirectories(packagesRoot);
 	const releases: PackageRelease[] = [];
+	const missing: string[] = [];
 	for (const pkg of published) {
+		const label = `${pkg.name}@${pkg.version}`;
 		const directory = directories.get(pkg.name);
-		let section: string | null = null;
-		if (directory) {
-			try {
-				section = changelogSection(await readFile(join(directory, 'CHANGELOG.md'), 'utf8'), pkg.version);
-			} catch {
-				section = null;
-			}
+		if (!directory) {
+			missing.push(`${label} (no package folder)`);
+			continue;
 		}
-		const parsed = section ? parseSection(section) : { entries: [], dependencies: [] };
-		releases.push({ ...pkg, ...parsed });
+		let changelog: string;
+		try {
+			changelog = await readFile(join(directory, 'CHANGELOG.md'), 'utf8');
+		} catch {
+			missing.push(`${label} (CHANGELOG.md unreadable)`);
+			continue;
+		}
+		const section = changelogSection(changelog, pkg.version);
+		if (section === null) {
+			missing.push(`${label} (no "## ${pkg.version}" section)`);
+			continue;
+		}
+		releases.push({ ...pkg, ...parseSection(section) });
 	}
+	if (missing.length > 0) throw new Error(`No release notes for: ${missing.join(', ')}. Check out the release commit and run again.`);
 	return releases;
 }
 
@@ -276,6 +292,27 @@ export interface PackagesMessageOptions {
 	avatarUrl?: string;
 }
 
+const SUBTEXT_LINE_LIMIT = 1800;
+
+/**
+ * A `-#` list that wraps between whole items. Discord applies subtext per line, so
+ * every line carries its own prefix, and no line is long enough for `chunkBlocks` to cut a link.
+ */
+export function subtextList(heading: string, items: string[], limit = SUBTEXT_LINE_LIMIT): string {
+	const lines: string[] = [];
+	let current = `-# ${heading}`;
+	for (const [index, item] of items.entries()) {
+		const piece = `${item}${index === items.length - 1 ? '' : ','}`;
+		if (`${current} ${piece}`.length <= limit) current = `${current} ${piece}`;
+		else {
+			lines.push(current);
+			current = `-# ${piece}`;
+		}
+	}
+	lines.push(current);
+	return lines.join('\n');
+}
+
 /** One block per package with changes of its own; dependency-only releases share one closing line. */
 export async function renderPackagesMessages(releases: PackageRelease[], options: PackagesMessageOptions): Promise<StoredMessage[]> {
 	const withChanges = releases.filter((pkg) => pkg.entries.length > 0);
@@ -285,7 +322,7 @@ export async function renderPackagesMessages(releases: PackageRelease[], options
 	for (const pkg of withChanges) blocks.push(await renderPackage(pkg, options.repository, options.date, options.lookup));
 	if (dependencyOnly.length > 0) {
 		const names = dependencyOnly.map((pkg) => `[${pkg.name}@${pkg.version}](<${releaseUrl(options.repository, pkg)}>)`);
-		blocks.push(`-# Also released with dependency updates only: ${names.join(', ')}`);
+		blocks.push(subtextList('Also released with dependency updates only:', names));
 	}
 	if (blocks.length === 0) return [];
 

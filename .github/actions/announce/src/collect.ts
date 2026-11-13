@@ -1,4 +1,4 @@
-import { isBot, parseConventionalTitle, type GitHub, type IssueComment, type PullRequest } from './github.ts';
+import { isBot, parseConventionalTitle, retry, type GitHub, type IssueComment, type PullRequest } from './github.ts';
 
 export interface PullSummary {
 	number: number;
@@ -66,20 +66,38 @@ function summarize(pr: PullRequest): PullSummary {
 	};
 }
 
-/** Pull requests merged between two refs, found through the commits the compare API lists. */
-export async function mergedPulls(github: GitHub, from: string, to: string, releaseBranches: string[]): Promise<PullRequest[]> {
+export interface MergedPullsOptions {
+	releaseBranches: string[];
+	defaultBranch: string;
+	sleep?: (ms: number) => Promise<void>;
+}
+
+/** The release PR (default branch into a release branch) only repeats what it carries. A hotfix into `release` is not one. */
+export function isRollup(pr: Pick<PullRequest, 'base' | 'head'>, options: Pick<MergedPullsOptions, 'releaseBranches' | 'defaultBranch'>): boolean {
+	return options.releaseBranches.includes(pr.base.ref) && pr.head.ref === options.defaultBranch;
+}
+
+/**
+ * Pull requests merged between two refs, found through the commits the compare API lists.
+ * A lookup that still fails after its retries fails the collection: skipping a commit
+ * would drop released changes from the announcement without a sign.
+ */
+export async function mergedPulls(
+	github: Pick<GitHub, 'commitsBetween' | 'pullsForCommit'>,
+	from: string,
+	to: string,
+	options: MergedPullsOptions
+): Promise<PullRequest[]> {
 	const commits = await github.commitsBetween(from, to);
 	const pulls = new Map<number, PullRequest>();
 	for (const commit of commits) {
-		let associated: PullRequest[];
-		try {
-			associated = await github.pullsForCommit(commit.sha);
-		} catch {
-			continue;
-		}
+		const associated = await retry(() => github.pullsForCommit(commit.sha), undefined, options.sleep).catch((error: unknown) => {
+			throw new Error(
+				`Could not read the pull requests of commit ${commit.sha.slice(0, 7)}: ${error instanceof Error ? error.message : String(error)}`
+			);
+		});
 		for (const pr of associated) {
-			// The release PR itself (main into release) only repeats what it carries.
-			if (!pr.merged_at || releaseBranches.includes(pr.base.ref)) continue;
+			if (!pr.merged_at || isRollup(pr, options)) continue;
 			pulls.set(pr.number, pr);
 		}
 	}
@@ -167,7 +185,10 @@ export interface CollectOptions {
 }
 
 export async function collectContext(github: GitHub, options: CollectOptions): Promise<ReleaseContext> {
-	const merged = await mergedPulls(github, options.fromRef, options.toRef, options.releaseBranches);
+	const merged = await mergedPulls(github, options.fromRef, options.toRef, {
+		releaseBranches: options.releaseBranches,
+		defaultBranch: await github.defaultBranch()
+	});
 	const dependencyUpdates = merged.filter(isDependencyUpdate).length;
 	const relevant = merged.filter((pr) => !isDependencyUpdate(pr)).slice(-MERGED_LIMIT);
 

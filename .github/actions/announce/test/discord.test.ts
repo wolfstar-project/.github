@@ -66,7 +66,8 @@ describe('signed release callbacks', () => {
 		const notify = createNotifier({
 			url: 'https://hooks.example/release',
 			secret: 's3cret',
-			mode: 'bot',
+			mode: 'draft',
+			kind: 'bot',
 			repository: 'o/r',
 			fetch: async (_url, init) => {
 				requests.push({ headers: init!.headers as Record<string, string>, body: init!.body as string });
@@ -80,7 +81,30 @@ describe('signed release callbacks', () => {
 		const timestamp = first!.headers['x-release-timestamp']!;
 		assert.equal(first!.headers['x-release-signature-256'], sign('s3cret', timestamp, first!.body));
 		assert.equal(JSON.parse(first!.body).event, 'drafted');
-		assert.equal(JSON.parse(first!.body).sequence, 1);
+		assert.equal(JSON.parse(first!.body).sequence, 2);
+	});
+
+	it('orders events by position, even from separate notifiers, and keeps mode apart from kind', async () => {
+		const bodies: Record<string, unknown>[] = [];
+		const fetch = async (_url: unknown, init?: RequestInit) => {
+			bodies.push(JSON.parse(init!.body as string));
+			return new Response(null);
+		};
+		const base = { url: 'https://hooks.example/release', secret: 's', repository: 'o/r', fetch };
+		// The draft job runs `collect` and `render` as two processes, the post job as a third.
+		await createNotifier({ ...base, mode: 'draft', kind: 'site' })('started');
+		await createNotifier({ ...base, mode: 'draft', kind: 'site' })('drafted');
+		await createNotifier({ ...base, mode: 'post', kind: 'site' })('completed');
+		await createNotifier({ ...base, mode: 'packages', kind: null })('failed');
+		assert.deepEqual(
+			bodies.map((body) => [body.event, body.sequence, body.mode, body.kind]),
+			[
+				['started', 1, 'draft', 'site'],
+				['drafted', 2, 'draft', 'site'],
+				['completed', 3, 'post', 'site'],
+				['failed', 4, 'packages', null]
+			]
+		);
 	});
 
 	it('is off without both URL and secret, or without HTTPS', async () => {
@@ -89,8 +113,8 @@ describe('signed release callbacks', () => {
 			called = true;
 			return new Response(null);
 		};
-		await createNotifier({ url: 'https://x.example', mode: 'bot', repository: 'o/r', fetch })('started');
-		await createNotifier({ url: 'http://x.example', secret: 's', mode: 'bot', repository: 'o/r', fetch })('started');
+		await createNotifier({ url: 'https://x.example', mode: 'draft', kind: 'bot', repository: 'o/r', fetch })('started');
+		await createNotifier({ url: 'http://x.example', secret: 's', mode: 'draft', kind: 'bot', repository: 'o/r', fetch })('started');
 		assert.equal(called, false);
 	});
 });

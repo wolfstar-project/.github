@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { afterImages, cleanBody, evidenceFrom, isDependencyUpdate, isGitHubImage } from '../src/collect.ts';
+import { afterImages, cleanBody, evidenceFrom, isDependencyUpdate, isGitHubImage, mergedPulls } from '../src/collect.ts';
+import type { PullRequest } from '../src/github.ts';
 
 const EVIDENCE = `Checked the visible change in the running app.
 
@@ -55,5 +56,63 @@ describe('pull request text', () => {
 		assert.equal(isDependencyUpdate({ title: 'fix(deps): update dependency ink to v8', user: null }), true);
 		assert.equal(isDependencyUpdate({ title: 'chore: lock file maintenance', user: { login: 'renovate[bot]', type: 'Bot' } }), true);
 		assert.equal(isDependencyUpdate({ title: 'feat: add /note', user: { login: 'RedStar071' } }), false);
+	});
+});
+
+describe('merged pull requests', () => {
+	const pull = (number: number, base: string, head: string): PullRequest =>
+		({
+			number,
+			title: `fix: ${number}`,
+			body: null,
+			html_url: '',
+			merged_at: '2026-11-01T00:00:00Z',
+			user: null,
+			labels: [],
+			base: { ref: base },
+			head: { ref: head }
+		}) as PullRequest;
+	const options = { releaseBranches: ['release'], defaultBranch: 'main', sleep: async () => {} };
+	const commits =
+		(...shas: string[]) =>
+		async () =>
+			shas.map((sha) => ({ sha, commit: { message: sha } }));
+
+	it('drops the main-into-release rollup and keeps a hotfix merged into release', async () => {
+		const byCommit: Record<string, PullRequest[]> = {
+			aaaaaaa: [pull(10, 'main', 'feature'), pull(12, 'release', 'main')],
+			bbbbbbb: [pull(11, 'release', 'hotfix/crash'), pull(12, 'release', 'main')]
+		};
+		const github = { commitsBetween: commits('aaaaaaa', 'bbbbbbb'), pullsForCommit: async (sha: string) => byCommit[sha]! };
+		const found = await mergedPulls(github, 'v1', 'v2', options);
+		assert.deepEqual(
+			found.map((pr) => pr.number),
+			[10, 11]
+		);
+	});
+
+	it('retries a failed lookup', async () => {
+		let calls = 0;
+		const github = {
+			commitsBetween: commits('aaaaaaa'),
+			pullsForCommit: async () => {
+				if (++calls < 3) throw new Error('GitHub 502');
+				return [pull(10, 'main', 'feature')];
+			}
+		};
+		assert.deepEqual(
+			(await mergedPulls(github, 'v1', 'v2', options)).map((pr) => pr.number),
+			[10]
+		);
+	});
+
+	it('fails the collection when a lookup keeps failing', async () => {
+		const github = {
+			commitsBetween: commits('aaaaaaa'),
+			pullsForCommit: async (): Promise<PullRequest[]> => {
+				throw new Error('GitHub 403 rate limit');
+			}
+		};
+		await assert.rejects(mergedPulls(github, 'v1', 'v2', options), /commit aaaaaaa.*rate limit/);
 	});
 });
