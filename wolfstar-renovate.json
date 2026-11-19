@@ -12,14 +12,14 @@
 			"automerge": true,
 			"matchCurrentVersion": "/^v?0\\./",
 			"matchUpdateTypes": ["patch"],
-			"platformAutomerge": true
+			"platformAutomerge": false
 		},
 		{
 			"description": "Automerge minor and patch updates of stable dependencies for every manager",
 			"automerge": true,
 			"matchCurrentVersion": "!/^v?0\\./",
 			"matchUpdateTypes": ["minor", "patch"],
-			"platformAutomerge": true
+			"platformAutomerge": false
 		}
 	],
 	"npm": {
