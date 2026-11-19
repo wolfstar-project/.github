@@ -6,20 +6,24 @@
 	"schedule": ["before 12pm on Sunday"],
 	"minimumReleaseAge": "3 days",
 	"cloneSubmodules": true,
+	"packageRules": [
+		{
+			"description": "Automerge patch updates of 0.x dependencies for every manager",
+			"automerge": true,
+			"matchCurrentVersion": "/^v?0\\./",
+			"matchUpdateTypes": ["patch"],
+			"platformAutomerge": true
+		},
+		{
+			"description": "Automerge minor and patch updates of stable dependencies for every manager",
+			"automerge": true,
+			"matchCurrentVersion": "!/^v?0\\./",
+			"matchUpdateTypes": ["minor", "patch"],
+			"platformAutomerge": true
+		}
+	],
 	"npm": {
 		"packageRules": [
-			{
-				"automerge": true,
-				"matchCurrentVersion": "/^0\\./",
-				"matchUpdateTypes": ["patch"],
-				"platformAutomerge": true
-			},
-			{
-				"automerge": true,
-				"matchCurrentVersion": ">=1.0.0",
-				"matchUpdateTypes": ["minor", "patch"],
-				"platformAutomerge": true
-			},
 			{ "enabled": false, "matchDepTypes": ["engines"] },
 			{ "enabled": false, "matchPackageNames": ["/typescript/"] },
 			{ "enabled": false, "matchPackageNames": ["/typedoc/"] },
